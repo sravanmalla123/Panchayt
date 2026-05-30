@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gram Panchayat Village Portal</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+
+  <!-- Print Layout (Hidden on Screen) -->
+  <div id="print-receipt" class="print-only">
+    <div class="print-header">
+      <h2>PANCHAYAT HOUSEHOLD CARD</h2>
+      <p class="print-subtitle">Official Registration & Verification QR</p>
+    </div>
+    <hr />
+    <div class="print-body">
+      <div class="print-details">
+        <div class="print-row"><span class="print-label">Household Number:</span> <strong id="print-h-id" class="print-highlight">H000</strong></div>
+        <div class="print-row"><span class="print-label">Head of House:</span> <span id="print-h-name">N/A</span></div>
+        <div class="print-row"><span class="print-label">Social Category:</span> <span id="print-h-category">N/A</span></div>
+        <div class="print-row"><span class="print-label">House Ownership:</span> <span id="print-h-house">N/A</span></div>
+        <div class="print-row"><span class="print-label">Contact Number:</span> <span id="print-h-phone">N/A</span></div>
+        <div class="print-row"><span class="print-label">Family Members:</span> <span id="print-h-members">0</span></div>
+        <div class="print-row"><span class="print-label">Poverty Status:</span> <strong id="print-h-poverty" style="color:var(--green-mid)">N/A</strong></div>
+        <div class="print-row"><span class="print-label">House Type:</span> <span id="print-h-house-type">N/A</span></div>
+        <div class="print-row"><span class="print-label">Land Owned:</span> <span id="print-h-land">N/A</span></div>
+        <div class="print-row"><span class="print-label">Income Source:</span> <span id="print-h-income-src">N/A</span></div>
+        <div class="print-row"><span class="print-label">Aadhaar Number:</span> <span id="print-h-aadhar">N/A</span></div>
+        <div class="print-row"><span class="print-label">Bank Account:</span> <span id="print-h-bank">N/A</span></div>
+      </div>
+      <div class="print-qr-section">
+        <img id="print-qr-img" src="" alt="QR Code">
+        <p class="print-qr-instructions">Scan QR to verify details online</p>
+      </div>
+    </div>
+    <div class="print-footer">
+      <p>Issued by Local Panchayat Authority</p>
+      <p id="print-h-date">Date: --/--/----</p>
+    </div>
+  </div>
+
+  <!-- ═══════════════ APP SHELL ═══════════════ -->
+  <div class="app-shell">
+
+    <!-- ─── LEFT SIDEBAR ─── -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-emblem">
+          <svg viewBox="0 0 100 100" width="42" height="42">
+            <circle cx="50" cy="50" r="45" fill="none" stroke="#d4a017" stroke-width="3.5"/>
+            <circle cx="50" cy="50" r="38" fill="#d4a017" opacity="0.15"/>
+            <path d="M50,18 L60,38 L82,38 L65,52 L74,75 L50,60 L26,75 L35,52 L18,38 L40,38 Z" fill="#d4a017"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <span class="brand-name">గ్రామ పంచాయతీ</span>
+          <span class="brand-sub">Village Portal</span>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-tab="home-tab">
+          <i data-lucide="layout-dashboard"></i>
+          <span>Dashboard</span>
+        </button>
+        <button class="nav-item" data-tab="register-tab">
+          <i data-lucide="user-plus"></i>
+          <span>Register Household</span>
+        </button>
+        <button class="nav-item" data-tab="directory-tab" id="directory-tab-btn">
+          <i data-lucide="database"></i>
+          <span>Directory</span>
+        </button>
+
+        <div class="nav-divider"></div>
+        <span class="nav-section-label">Village Info</span>
+
+        <button class="nav-item nav-static">
+          <i data-lucide="sprout"></i>
+          <span>Agriculture</span>
+          <i data-lucide="chevron-right" class="nav-arrow"></i>
+        </button>
+        <button class="nav-item nav-static">
+          <i data-lucide="file-text"></i>
+          <span>Govt Schemes</span>
+          <i data-lucide="chevron-right" class="nav-arrow"></i>
+        </button>
+        <button class="nav-item nav-static">
+          <i data-lucide="heart-handshake"></i>
+          <span>Village Services</span>
+          <i data-lucide="chevron-right" class="nav-arrow"></i>
+        </button>
+        <button class="nav-item nav-static">
+          <i data-lucide="newspaper"></i>
+          <span>Events & News</span>
+          <i data-lucide="chevron-right" class="nav-arrow"></i>
+        </button>
+        <button class="nav-item nav-static">
+          <i data-lucide="image"></i>
+          <span>Gallery</span>
+        </button>
+        <button class="nav-item nav-static">
+          <i data-lucide="map-pin"></i>
+          <span>Village Map</span>
+        </button>
+        <button class="nav-item nav-static">
+          <i data-lucide="phone"></i>
+          <span>Contact Us</span>
+        </button>
+      </nav>
+    </aside>
+
+    <!-- ─── MAIN COLUMN ─── -->
+    <div class="main-column">
+
+      <!-- ─── TOP HEADER BAR ─── -->
+      <header class="top-header">
+        <button class="hamburger" id="sidebar-toggle">
+          <i data-lucide="menu"></i>
+        </button>
+        <div class="header-left">
+          <span class="header-date" id="current-date">29 May 2026</span>
+          <span class="header-sep">|</span>
+          <span class="header-time" id="current-time">4:30 PM</span>
+        </div>
+        <div class="header-right">
+          <button class="header-icon-btn" title="Announcements">
+            <i data-lucide="megaphone"></i>
+            <span class="hdr-label">Announcements</span>
+          </button>
+          <button class="header-icon-btn notif-btn" title="Notifications">
+            <i data-lucide="bell"></i>
+            <span class="notif-badge">3</span>
+            <span class="hdr-label">Notifications</span>
+          </button>
+          <button class="header-icon-btn" id="theme-btn" title="Toggle Theme">
+            <i data-lucide="moon" id="theme-icon"></i>
+          </button>
+          <div class="header-user">
+            <div class="user-avatar">
+              <i data-lucide="user"></i>
+            </div>
+            <div class="user-info">
+              <span class="user-greeting">Welcome,</span>
+              <span class="user-name">Admin <i data-lucide="chevron-down" style="width:14px;height:14px;"></i></span>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- ─── SCROLLABLE CONTENT ─── -->
+      <main class="main-content">
+
+        <!-- Latest Notice Ticker Bar -->
+        <div class="ticker-bar">
+          <div class="ticker-label"><span>LATEST</span></div>
+          <div class="ticker-content">
+            <marquee behavior="scroll" direction="left" scrollamount="4">
+              Rythu Bharosa – ₹13,500 per acre for farmers ✦ PM Awas Yojana – Housing grants for all eligible households ✦ Thalliki Vandhanam – Student scholarships ✦ Digital Panchayat Database QR Household Card Distribution Active.
+            </marquee>
+          </div>
+        </div>
+
+        <!-- ═══ TAB 0: HOME / DASHBOARD ═══ -->
+        <section class="tab-content active" id="home-tab">
+
+          <!-- Breadcrumb -->
+          <div class="breadcrumb">
+            <span>Home</span> <i data-lucide="chevron-right" style="width:14px;height:14px;"></i> <span class="bc-active">Dashboard</span>
+          </div>
+
+          <div class="page-title-row">
+            <div>
+              <h1 class="page-title">About Our Village</h1>
+              <p class="page-subtitle">Discover Our Community, Our Strength</p>
+            </div>
+            <button class="btn btn-primary" id="hero-register-btn">
+              <i data-lucide="user-plus"></i>
+              <span>Register Household</span>
+            </button>
+          </div>
+
+          <!-- Village Banner -->
+          <div class="village-banner">
+            <img src="village_banner.png" alt="Village Panorama">
+          </div>
+
+          <!-- Stats Cards Row -->
+          <div class="stats-row">
+            <div class="stat-card-v2">
+              <div class="stat-icon-circle stat-green">
+                <i data-lucide="users"></i>
+              </div>
+              <div class="stat-label">Population</div>
+              <div class="stat-value" id="portal-families-count">...</div>
+              <div class="stat-desc">Total Residents</div>
+              <div class="stat-underline stat-green-line"></div>
+            </div>
+            <div class="stat-card-v2">
+              <div class="stat-icon-circle stat-teal">
+                <i data-lucide="map"></i>
+              </div>
+              <div class="stat-label">Area</div>
+              <div class="stat-value">4.32</div>
+              <div class="stat-desc">Square Kilometers</div>
+              <div class="stat-underline stat-teal-line"></div>
+            </div>
+            <div class="stat-card-v2">
+              <div class="stat-icon-circle stat-purple">
+                <i data-lucide="graduation-cap"></i>
+              </div>
+              <div class="stat-label">Schools</div>
+              <div class="stat-value">3</div>
+              <div class="stat-desc">Total Schools</div>
+              <div class="stat-underline stat-purple-line"></div>
+            </div>
+            <div class="stat-card-v2">
+              <div class="stat-icon-circle stat-red">
+                <i data-lucide="stethoscope"></i>
+              </div>
+              <div class="stat-label">Hospitals</div>
+              <div class="stat-value">1</div>
+              <div class="stat-desc">Primary Health Center</div>
+              <div class="stat-underline stat-red-line"></div>
+            </div>
+            <div class="stat-card-v2">
+              <div class="stat-icon-circle stat-orange">
+                <i data-lucide="sprout"></i>
+              </div>
+              <div class="stat-label">Farmers</div>
+              <div class="stat-value">1,287</div>
+              <div class="stat-desc">Active Farmers</div>
+              <div class="stat-underline stat-orange-line"></div>
+            </div>
+            <div class="stat-card-v2">
+              <div class="stat-icon-circle stat-blue">
+                <i data-lucide="hand-helping"></i>
+              </div>
+              <div class="stat-label">Self Help Groups</div>
+              <div class="stat-value">12</div>
+              <div class="stat-desc">Women Groups</div>
+              <div class="stat-underline stat-blue-line"></div>
+            </div>
+          </div>
+
+          <!-- About Section -->
+          <div class="about-section">
+            <div class="about-text">
+              <h2 class="about-title">About Our Village</h2>
+              <div class="about-ornament">✿</div>
+              <p>Our village is a peaceful and progressive community surrounded by lush green fields and natural beauty. Known for unity, agriculture, culture and traditions.</p>
+              <p>We are working together for a better tomorrow with education, health, infrastructure and sustainable development.</p>
+
+              <div class="about-pillars">
+                <div class="pillar-item">
+                  <div class="pillar-icon"><i data-lucide="users"></i></div>
+                  <strong>Unity</strong>
+                  <span>We stand together for our village</span>
+                </div>
+                <div class="pillar-item">
+                  <div class="pillar-icon"><i data-lucide="sprout"></i></div>
+                  <strong>Agriculture</strong>
+                  <span>Farming is our main strength</span>
+                </div>
+                <div class="pillar-item">
+                  <div class="pillar-icon"><i data-lucide="graduation-cap"></i></div>
+                  <strong>Education</strong>
+                  <span>Better education for better future</span>
+                </div>
+                <div class="pillar-item">
+                  <div class="pillar-icon"><i data-lucide="building-2"></i></div>
+                  <strong>Development</strong>
+                  <span>Building a smart and strong village</span>
+                </div>
+              </div>
+            </div>
+            <div class="about-image">
+              <img src="village_bg.png" alt="Village View">
+            </div>
+          </div>
+
+          <!-- Quick Access -->
+          <div class="quick-access-section">
+            <h3 class="section-title"><i data-lucide="grid"></i> Quick Access | త్వరిత యాక్సెస్</h3>
+            <div class="quick-access-grid">
+              <div class="quick-tile tile-rythu">
+                <div class="tile-icon"><i data-lucide="sprout"></i></div>
+                <div class="tile-info">
+                  <h4>Rythu Bharosa</h4>
+                  <p>Farmer support scheme details & applications</p>
+                </div>
+              </div>
+              <div class="quick-tile tile-awas">
+                <div class="tile-icon"><i data-lucide="home"></i></div>
+                <div class="tile-info">
+                  <h4>PM Awas Yojana</h4>
+                  <p>Housing assistance & status tracking</p>
+                </div>
+              </div>
+              <div class="quick-tile tile-thalliki">
+                <div class="tile-icon"><i data-lucide="graduation-cap"></i></div>
+                <div class="tile-info">
+                  <h4>Thalliki Vandhanam</h4>
+                  <p>Student scholarships & education benefits</p>
+                </div>
+              </div>
+              <div class="quick-tile tile-notices">
+                <div class="tile-icon"><i data-lucide="bell"></i></div>
+                <div class="tile-info">
+                  <h4>Official Notices</h4>
+                  <p>View latest village mandates & announcements</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </section>
+
+        <!-- ═══ TAB 1: REGISTRATION FORM ═══ -->
+        <section class="tab-content" id="register-tab">
+          <div class="breadcrumb">
+            <span>Home</span> <i data-lucide="chevron-right" style="width:14px;height:14px;"></i> <span class="bc-active">Register Household</span>
+          </div>
+          <h1 class="page-title">Register New Household</h1>
+          <p class="page-subtitle">నమోదు – Add a new household to the panchayat registry</p>
+
+          <div class="card-grid">
+            <!-- Form Card -->
+            <div class="card form-card">
+              <div class="card-header">
+                <div class="card-icon"><i data-lucide="file-text"></i></div>
+                <h3>Household Details Form</h3>
+              </div>
+
+              <form id="registration-form" class="registration-form">
+                <!-- SECTION 1: Basic & Social Info -->
+                <div class="form-section-group">
+                  <h4 class="section-title-tag"><i data-lucide="user-check"></i> Basic & Social Info</h4>
+                  <div class="form-grid">
+                    <div class="form-group full-width">
+                      <label for="headName"><span>Household Head Name</span> <span class="required">*</span></label>
+                      <input type="text" id="headName" placeholder="Enter full name of household head" required>
+                    </div>
+                    <div class="form-group">
+                      <label for="category">Social Category</label>
+                      <select id="category">
+                        <option value="General" selected>General</option>
+                        <option value="OBC">OBC</option>
+                        <option value="SC">SC</option>
+                        <option value="ST">ST</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label for="contactNo">Contact Phone Number</label>
+                      <input type="tel" id="contactNo" placeholder="10-digit mobile number" pattern="[0-9]{10}">
+                    </div>
+                    <div class="form-group">
+                      <label for="familyMembers">Total Family Members</label>
+                      <input type="number" id="familyMembers" min="0" value="0" readonly style="background-color: var(--bg-app); cursor: not-allowed; font-weight: bold; color: var(--green-vivid);">
+                    </div>
+                    <div class="form-group">
+                      <label for="migrationStatus">Migration Status</label>
+                      <select id="migrationStatus">
+                        <option value="No" selected>No</option>
+                        <option value="Yes">Yes</option>
+                      </select>
+                    </div>
+                    <div class="form-group hidden" id="migration-details-group">
+                      <label for="migrationDetails">Migration Details</label>
+                      <input type="text" id="migrationDetails" placeholder="Enter migration location/details">
+                    </div>
+                    <div class="form-group">
+                      <label for="aadharNumber">Aadhaar Number</label>
+                      <input type="text" id="aadharNumber" placeholder="12-digit Aadhaar number" pattern="[0-9]{12}">
+                    </div>
+                    <div class="form-group">
+                      <label for="bankAccount">Bank Account</label>
+                      <select id="bankAccount">
+                        <option value="No" selected>No</option>
+                        <option value="Yes">Yes</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <!-- Family Members Builder Section -->
+                  <div class="checkbox-group-container" style="margin-top: 20px; width: 100%;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 10px;">
+                      <label class="group-header-label" style="margin-bottom: 0;"><i data-lucide="users"></i> Family Members Details</label>
+                      <button type="button" class="btn btn-secondary btn-small" id="add-member-btn" style="padding: 6px 12px; font-size: 0.8rem;">
+                        <i data-lucide="plus" style="width:12px; height:12px;"></i> Add Member
+                      </button>
+                    </div>
+                    <div id="members-list" style="width: 100%;">
+                      <p class="no-members-msg" style="color: var(--text-muted); font-size: 0.85rem; font-style: italic;">No family members registered yet. Click 'Add Member' to add details.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- SECTION 2: Finance & Housing -->
+                <div class="form-section-group mt-6">
+                  <h4 class="section-title-tag"><i data-lucide="wallet"></i> Finance & Housing</h4>
+                  <div class="form-grid">
+                    <div class="form-group">
+                      <label for="annualIncome">Annual Income (₹)</label>
+                      <input type="number" id="annualIncome" placeholder="e.g. 150000" min="0">
+                    </div>
+                    <div class="form-group">
+                      <label for="povertyStatus">Poverty Classification</label>
+                      <input type="text" id="povertyStatus" readonly style="background-color: var(--bg-app); cursor: not-allowed; font-weight: bold; color: var(--green-vivid);" value="APL">
+                    </div>
+                    <div class="form-group">
+                      <label for="mainIncomeSource">Main Income Source</label>
+                      <input type="text" id="mainIncomeSource" placeholder="e.g. Agriculture, Business, Wage Labor">
+                    </div>
+                    <div class="form-group">
+                      <label for="mnregaJobCard">MNREGA Job Card</label>
+                      <select id="mnregaJobCard">
+                        <option value="No" selected>No</option>
+                        <option value="Yes">Yes</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label for="houseOwnership">House Status / Ownership</label>
+                      <select id="houseOwnership">
+                        <option value="Own House" selected>Own House</option>
+                        <option value="Rented">Rented</option>
+                        <option value="Govt Allocated">Government Allocated</option>
+                        <option value="Hutment/Kutcha">Hutment / Temporary</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label for="houseType">House Construction Type</label>
+                      <select id="houseType">
+                        <option value="Pucca (Concrete/Brick)" selected>Pucca (Concrete/Brick)</option>
+                        <option value="Kutcha (Mud/Thatch)">Kutcha (Mud/Thatch)</option>
+                        <option value="Semi-Pucca">Semi-Pucca</option>
+                        <option value="Hutment/Temporary">Hutment / Temporary</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- SECTION 3: Utilities, Vehicles & Appliances -->
+                <div class="form-section-group mt-6">
+                  <h4 class="section-title-tag"><i data-lucide="plug"></i> Utilities, Vehicles & Appliances</h4>
+
+                  <!-- Vehicles Builder Section -->
+                  <div class="checkbox-group-container" style="margin-bottom: 20px; width: 100%;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 10px;">
+                      <label class="group-header-label" style="margin-bottom: 0;"><i data-lucide="car"></i> Vehicles Owned</label>
+                      <button type="button" class="btn btn-secondary btn-small" id="add-vehicle-btn" style="padding: 6px 12px; font-size: 0.8rem;">
+                        <i data-lucide="plus" style="width:12px; height:12px;"></i> Add Vehicle
+                      </button>
+                    </div>
+                    <div id="vehicles-list" style="width: 100%;">
+                      <p class="no-vehicles-msg" style="color: var(--text-muted); font-size: 0.85rem; font-style: italic;">No vehicles registered</p>
+                    </div>
+                  </div>
+
+                  <div class="form-grid" style="margin-bottom: 20px;">
+                    <div class="form-group">
+                      <label for="electricityAccess">Electricity Access</label>
+                      <select id="electricityAccess">
+                        <option value="No">No</option>
+                        <option value="Yes" selected>Yes</option>
+                      </select>
+                    </div>
+                    <div class="form-group" id="electricity-hours-group">
+                      <label for="electricityHours">Electricity Supply (Hrs/Day)</label>
+                      <input type="number" id="electricityHours" placeholder="e.g. 18" min="0" max="24" value="24">
+                    </div>
+                    <div class="form-group">
+                      <label for="toiletAvailable">Toilet Availability</label>
+                      <select id="toiletAvailable">
+                        <option value="Yes" selected>Yes</option>
+                        <option value="No - Using Public Toilets">No - Using Public Toilets</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label for="drinkingWaterSource">Drinking Water Source</label>
+                      <select id="drinkingWaterSource">
+                        <option value="Panchayat Tap Water" selected>Panchayat Tap Water</option>
+                        <option value="Borewell/Tube Well">Borewell/Tube Well</option>
+                        <option value="Open Well">Open Well</option>
+                        <option value="Handpump">Handpump</option>
+                        <option value="Bottled/Purified Water">Bottled/Purified Water</option>
+                        <option value="River/Canal/Lake">River / Canal / Lake</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div class="checkbox-group-container full-width" style="margin-bottom: 20px;">
+                    <label class="group-header-label"><i data-lucide="flame"></i> Cooking Fuel Type</label>
+                    <div class="checkbox-list inline-flex">
+                      <label class="check-item"><input type="checkbox" name="cookingFuel" value="LPG" checked> LPG (Gas Cylinder)</label>
+                      <label class="check-item"><input type="checkbox" name="cookingFuel" value="Bio Gas"> Bio Gas</label>
+                      <label class="check-item"><input type="checkbox" name="cookingFuel" value="Kerosene"> Kerosene</label>
+                      <label class="check-item"><input type="checkbox" name="cookingFuel" value="Wood/Biomass"> Firewood / Wood</label>
+                    </div>
+                  </div>
+
+                  <div class="checkbox-section-grid">
+                    <!-- Electronic Appliances -->
+                    <div class="checkbox-group-container">
+                      <label class="group-header-label"><i data-lucide="tv"></i> Electronic Appliances</label>
+                      <div class="checkbox-list">
+                        <label class="check-item"><input type="checkbox" name="electronics" value="Television"> Television</label>
+                        <label class="check-item"><input type="checkbox" name="electronics" value="Refrigerator"> Refrigerator</label>
+                        <label class="check-item"><input type="checkbox" name="electronics" value="Air Conditioner"> Air Conditioner</label>
+                        <label class="check-item"><input type="checkbox" name="electronics" value="Washing Machine"> Washing Machine</label>
+                        <label class="check-item"><input type="checkbox" name="electronics" value="Other" id="electronic-other-check"> Other</label>
+                        <label class="check-item"><input type="checkbox" name="electronics" value="None" id="electronic-none"> None</label>
+                      </div>
+                      <div class="form-group hidden" id="electronics-other-detail-group" style="margin-top: 10px;">
+                        <label for="electronicsOthers" style="font-size: 0.75rem;">Other Appliances Details</label>
+                        <input type="text" id="electronicsOthers" placeholder="e.g. Microwave, Heater" style="padding: 6px 10px; font-size: 0.8rem;">
+                      </div>
+                    </div>
+                    <!-- Service Providers -->
+                    <div class="checkbox-group-container">
+                      <label class="group-header-label"><i data-lucide="wifi"></i> Service Providers</label>
+                      <div class="checkbox-list">
+                        <label class="check-item"><input type="checkbox" name="providers" value="Jio"> Jio Network</label>
+                        <label class="check-item"><input type="checkbox" name="providers" value="Airtel"> Airtel Network</label>
+                        <label class="check-item"><input type="checkbox" name="providers" value="BSNL"> BSNL Network</label>
+                        <label class="check-item"><input type="checkbox" name="providers" value="VI"> VI Network</label>
+                        <label class="check-item"><input type="checkbox" name="providers" value="DTH Connection"> DTH provider</label>
+                        <label class="check-item"><input type="checkbox" name="providers" value="None" id="provider-none"> None</label>
+                      </div>
+                    </div>
+                    <!-- Water Storage -->
+                    <div class="checkbox-group-container">
+                      <label class="group-header-label"><i data-lucide="droplet"></i> Water Storage System</label>
+                      <div class="checkbox-list">
+                        <label class="check-item"><input type="checkbox" name="water" value="Overhead Tank"> Overhead Tank</label>
+                        <label class="check-item"><input type="checkbox" name="water" value="Sump"> Sump Tank</label>
+                        <label class="check-item"><input type="checkbox" name="water" value="Borewell"> Borewell</label>
+                        <label class="check-item"><input type="checkbox" name="water" value="Handpump"> Handpump</label>
+                        <label class="check-item"><input type="checkbox" name="water" value="Panchayat Supply"> Panchayat supply line</label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- SECTION 4: Agriculture, Schemes & Health -->
+                <div class="form-section-group mt-6">
+                  <h4 class="section-title-tag"><i data-lucide="sprout"></i> Agriculture, Schemes & Health</h4>
+                  <div class="form-grid">
+                    <div class="form-group">
+                      <label for="landOwned">Agricultural Land Owned</label>
+                      <select id="landOwned">
+                        <option value="No" selected>No</option>
+                        <option value="Yes">Yes</option>
+                      </select>
+                    </div>
+                    <div class="form-group hidden" id="land-acres-group">
+                      <label for="landAcres">Land Owned (Acres)</label>
+                      <input type="number" id="landAcres" placeholder="Acres (e.g. 2.5)" step="0.1" min="0" value="0">
+                    </div>
+                    <div class="form-group">
+                      <label for="agricultureCrops">Agricultural Crops Grown</label>
+                      <input type="text" id="agricultureCrops" placeholder="e.g. Rice, Cotton, Sugarcane">
+                    </div>
+                    <div class="form-group">
+                      <label for="agricultureChemicals">Chemicals/Fertilizers Used</label>
+                      <input type="text" id="agricultureChemicals" placeholder="e.g. Urea, Potash, Pesticides">
+                    </div>
+                    <div class="form-group">
+                      <label for="irrigation">Irrigation Source</label>
+                      <select id="irrigation">
+                        <option value="None" selected>No Agricultural Land</option>
+                        <option value="Drip">Drip Irrigation</option>
+                        <option value="Sprinkler">Sprinkler Irrigation</option>
+                        <option value="Tube Well / Borewell">Tube Well / Borewell</option>
+                        <option value="Canal / Tank">Canal / Tank Supply</option>
+                        <option value="Rainfed">Rainfed (Dependent on Rain)</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label for="healthIssues">Chronic/Family Health Issues</label>
+                      <input type="text" id="healthIssues" placeholder="e.g. Asthma, Diabetes, or None">
+                    </div>
+                    <!-- Govt Schemes Beneficiary (Checks) -->
+                    <div class="form-group full-width">
+                      <label class="group-header-label"><i data-lucide="gift"></i> Govt Schemes Beneficiary Status</label>
+                      <div class="checkbox-list inline-flex">
+                        <label class="check-item"><input type="checkbox" name="schemes" value="Housing Scheme"> Housing Scheme (Awas)</label>
+                        <label class="check-item"><input type="checkbox" name="schemes" value="Pension Scheme"> Social Pension (Old Age/Widow)</label>
+                        <label class="check-item"><input type="checkbox" name="schemes" value="Farmer Subsidy"> Farmer Subsidy (PM-Kisan)</label>
+                        <label class="check-item"><input type="checkbox" name="schemes" value="Food Ration"> Food Ration Card Benefits</label>
+                        <label class="check-item"><input type="checkbox" name="schemes" value="Others" id="scheme-others-check"> Others</label>
+                      </div>
+                    </div>
+                    <!-- Others scheme details box -->
+                    <div class="form-group full-width hidden" id="others-scheme-detail-group">
+                      <label for="benefitsOthers">Details of Other Schemes</label>
+                      <input type="text" id="benefitsOthers" placeholder="Please specify other scheme names">
+                    </div>
+                  </div>
+
+                  <!-- Livestock Builder Section -->
+                  <div class="checkbox-group-container full-width" style="margin-top: 20px;">
+                    <label class="group-header-label"><i data-lucide="paw-print"></i> Livestock Owned</label>
+                    <div class="livestock-grid">
+                      <div class="livestock-item">
+                        <label class="check-item"><input type="checkbox" name="livestock" value="Cows" id="ls-cows"> Cows</label>
+                        <input type="number" id="ls-cows-count" class="ls-count-input hidden" min="1" value="1" placeholder="Qty">
+                      </div>
+                      <div class="livestock-item">
+                        <label class="check-item"><input type="checkbox" name="livestock" value="Buffaloes" id="ls-buffaloes"> Buffaloes</label>
+                        <input type="number" id="ls-buffaloes-count" class="ls-count-input hidden" min="1" value="1" placeholder="Qty">
+                      </div>
+                      <div class="livestock-item">
+                        <label class="check-item"><input type="checkbox" name="livestock" value="Goats/Sheep" id="ls-goats"> Goats / Sheep</label>
+                        <input type="number" id="ls-goats-count" class="ls-count-input hidden" min="1" value="1" placeholder="Qty">
+                      </div>
+                      <div class="livestock-item">
+                        <label class="check-item"><input type="checkbox" name="livestock" value="Poultry" id="ls-poultry"> Poultry (Hens/Ducks)</label>
+                        <input type="number" id="ls-poultry-count" class="ls-count-input hidden" min="1" value="1" placeholder="Qty">
+                      </div>
+                      <div class="livestock-item">
+                        <label class="check-item"><input type="checkbox" name="livestock" value="Pigs" id="ls-pigs"> Pigs</label>
+                        <input type="number" id="ls-pigs-count" class="ls-count-input hidden" min="1" value="1" placeholder="Qty">
+                      </div>
+                      <div class="livestock-item">
+                        <label class="check-item"><input type="checkbox" name="livestock" value="Others" id="ls-others"> Others</label>
+                        <input type="number" id="ls-others-count" class="ls-count-input hidden" min="1" value="1" placeholder="Qty">
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- SECTION 5: House Photos -->
+                <div class="form-section-group mt-6">
+                  <h4 class="section-title-tag"><i data-lucide="image"></i> House Photos</h4>
+                  <div class="form-group full-width">
+                    <label>Select House Photos (Upload more than 1 photo)</label>
+                    <div class="photo-uploader-box">
+                      <input type="file" id="housePhotos" accept="image/*" multiple style="display: none;">
+                      <button type="button" class="btn btn-secondary" id="photo-upload-btn"><i data-lucide="upload-cloud"></i> Select House Photos</button>
+                      <span class="photo-uploader-text" id="photo-upload-status">No files chosen</span>
+                    </div>
+                    <div id="photo-previews-container" class="photo-previews-grid">
+                      <!-- Previews will render here -->
+                    </div>
+                  </div>
+                </div>
+
+                <div class="form-actions">
+                  <button type="reset" class="btn btn-secondary" id="form-reset-btn"><i data-lucide="rotate-ccw"></i> Reset</button>
+                  <button type="submit" class="btn btn-primary" id="submit-btn"><i data-lucide="check-circle-2"></i> Register Household</button>
+                </div>
+              </form>
+            </div>
+
+            <!-- Quick Stats / Helper Card -->
+            <div class="card info-card">
+              <h3>Panchayat Registry System</h3>
+              <p class="info-desc">Create secure profiles for village households. A permanent sequential Household ID and verification QR code will be generated immediately on registration.</p>
+              <div class="features-list">
+                <div class="feature-item">
+                  <div class="feature-icon"><i data-lucide="shield-check"></i></div>
+                  <div>
+                    <h4>Secure Local Database</h4>
+                    <p>All social, asset, and utility parameters are safely logged in the database.</p>
+                  </div>
+                </div>
+                <div class="feature-item">
+                  <div class="feature-icon"><i data-lucide="qr-code"></i></div>
+                  <div>
+                    <h4>Dynamically Generated QR</h4>
+                    <p>A quick-scan barcode that encodes a direct link to the household's ledger file.</p>
+                  </div>
+                </div>
+                <div class="feature-item">
+                  <div class="feature-icon"><i data-lucide="printer"></i></div>
+                  <div>
+                    <h4>Official Printing Support</h4>
+                    <p>Generates print-optimized card receipts for village distribution.</p>
+                  </div>
+                </div>
+              </div>
+              <div class="database-card-count">
+                <span class="lbl">Registered Households:</span>
+                <span class="val" id="total-households-count">Loading...</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Success Modal Panel -->
+          <div id="success-overlay" class="overlay hidden">
+            <div class="modal success-modal">
+              <div class="modal-header-success">
+                <div class="success-icon"><i data-lucide="sparkles"></i></div>
+                <h3>Household Registered Successfully!</h3>
+                <p>Unique Household Number and QR Code Generated</p>
+              </div>
+              <div class="modal-body-content">
+                <div class="success-info-split">
+                  <div class="success-details-summary">
+                    <div class="success-id-badge">
+                      <span class="badge-label">HOUSEHOLD ID</span>
+                      <h2 id="success-household-id">H001</h2>
+                    </div>
+                    <div class="summary-list">
+                      <div class="summary-item"><span class="sum-lbl">Head Name:</span> <strong id="success-head-name">John Doe</strong></div>
+                      <div class="summary-item"><span class="sum-lbl">Category:</span> <span id="success-category">General</span></div>
+                      <div class="summary-item"><span class="sum-lbl">Ownership:</span> <span id="success-ownership">Own House</span></div>
+                      <div class="summary-item"><span class="sum-lbl">Contact Phone:</span> <span id="success-phone">9988776655</span></div>
+                      <div class="summary-item"><span class="sum-lbl">Aadhaar Number:</span> <span id="success-aadhar">N/A</span></div>
+                      <div class="summary-item"><span class="sum-lbl">Bank Account:</span> <span id="success-bank">N/A</span></div>
+                    </div>
+                  </div>
+                  <div class="success-qr-container">
+                    <div class="qr-frame">
+                      <img id="success-qr-img" src="" alt="QR Code">
+                    </div>
+                    <p class="qr-frame-caption">Household Card QR Code</p>
+                  </div>
+                </div>
+              </div>
+              <div class="modal-actions">
+                <button class="btn btn-secondary" id="success-print-btn"><i data-lucide="printer"></i> Print Card</button>
+                <button class="btn btn-secondary" id="success-download-btn"><i data-lucide="download"></i> Download QR</button>
+                <button class="btn btn-primary" id="success-close-btn"><i data-lucide="plus"></i> Register Another</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Details overlay will be rendered globally at the bottom of body -->
+
+        <!-- ═══ TAB 3: DIRECTORY ═══ -->
+        <section class="tab-content" id="directory-tab">
+          <div class="breadcrumb">
+            <span>Home</span> <i data-lucide="chevron-right" style="width:14px;height:14px;"></i> <span class="bc-active">Directory</span>
+          </div>
+          <h1 class="page-title">Household Directory</h1>
+          <p class="page-subtitle">కుటుంబ వివరాలు – Browse all registered households</p>
+
+          <div class="directory-controls">
+            <input type="text" id="dir-search-input" placeholder="🔍  Search ID, name, phone, category...">
+            <select id="dir-category-filter">
+              <option value="">All Categories</option>
+              <option value="General">General</option>
+              <option value="OBC">OBC</option>
+              <option value="SC">SC</option>
+              <option value="ST">ST</option>
+            </select>
+            <select id="dir-migration-filter">
+              <option value="">All Migration</option>
+              <option value="No">No Migration</option>
+              <option value="Yes">Has Migration</option>
+            </select>
+            <button class="btn btn-primary btn-small" id="dir-refresh-btn">
+              <i data-lucide="refresh-cw"></i> Refresh
+            </button>
+          </div>
+          <div class="directory-stats-badge">
+            <span id="directory-stats">Showing 0 records</span>
+          </div>
+          <div class="table-container">
+            <table class="directory-table">
+              <thead>
+                <tr>
+                  <th>Household ID</th>
+                  <th>Head of House</th>
+                  <th>Category</th>
+                  <th>Income Source</th>
+                  <th>Phone</th>
+                  <th>Members</th>
+                  <th>Migration</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="directory-table-body">
+                <tr>
+                  <td colspan="8" class="text-center py-8">
+                    <div class="spinner-container">
+                      <div class="spinner"></div>
+                      <p>Loading database records...</p>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- Sidebar overlay for mobile -->
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+  <!-- Household Details Modal Overlay -->
+  <div id="details-overlay" class="overlay hidden">
+    <div class="modal details-modal">
+      <div class="modal-header-details">
+        <h3>
+          <i data-lucide="info"></i>
+          Household Profile Details
+        </h3>
+        <button type="button" id="details-close-btn">✕</button>
+      </div>
+      <div class="modal-body-scrollable">
+        
+        <!-- Scanner Result Viewer -->
+        <div id="scan-result-card" class="details-card">
+          <div class="details-card-header">
+            <span class="detail-id-tag" id="detail-id">H000</span>
+            <div>
+              <h3 id="detail-headName">Head Name</h3>
+              <p id="detail-category-tag" class="social-badge">Category: General</p>
+            </div>
+          </div>
+          <div class="details-body">
+            <!-- House Photos Carousel in details card -->
+            <div class="detail-carousel-container hidden" id="detail-photos-carousel-group" style="grid-column: span 2; margin-bottom: 20px;">
+              <span class="det-lbl" style="margin-bottom: 8px; display: block;"><i data-lucide="image"></i> House Photos</span>
+              <div class="carousel-wrapper">
+                <div class="carousel-track" id="detail-photos-carousel-track">
+                  <!-- Images will be dynamically inserted here -->
+                </div>
+                <button type="button" class="carousel-btn prev-btn" id="carousel-prev-btn">❮</button>
+                <button type="button" class="carousel-btn next-btn" id="carousel-next-btn">❯</button>
+              </div>
+            </div>
+
+            <div class="detail-row">
+              <span class="det-icon"><i data-lucide="phone"></i></span>
+              <div><span class="det-lbl">Contact Number</span><span class="det-val" id="detail-contactNo">N/A</span></div>
+            </div>
+            <div class="detail-row">
+              <span class="det-icon"><i data-lucide="users"></i></span>
+              <div><span class="det-lbl">Family Members</span><span class="det-val" id="detail-familyMembers">0</span></div>
+            </div>
+            <div class="detail-row">
+              <span class="det-icon"><i data-lucide="shield-alert"></i></span>
+              <div><span class="det-lbl">Poverty Status</span><span class="det-val" id="detail-povertyStatus" style="font-weight: bold;">APL</span></div>
+            </div>
+            <div class="detail-row">
+              <span class="det-icon"><i data-lucide="home"></i></span>
+              <div><span class="det-lbl">House Construction Type</span><span class="det-val" id="detail-houseType">Pucca</span></div>
+            </div>
+            <div class="detail-row">
+              <span class="det-icon"><i data-lucide="zap"></i></span>
+              <div><span class="det-lbl">Electricity Access</span><span class="det-val" id="detail-electricity">Yes</span></div>
+            </div>
+            <div class="detail-row">
+              <span class="det-icon"><i data-lucide="smile"></i></span>
+              <div><span class="det-lbl">Toilet Available</span><span class="det-val" id="detail-toiletAvailable">Yes</span></div>
+            </div>
+            <div class="detail-row">
+              <span class="det-icon"><i data-lucide="droplet"></i></span>
+              <div><span class="det-lbl">Drinking Water Source</span><span class="det-val" id="detail-drinkingWaterSource">Panchayat Tap Water</span></div>
+            </div>
+            <div class="detail-row">
+              <span class="det-icon"><i data-lucide="flame"></i></span>
+              <div><span class="det-lbl">Cooking Fuel Type</span><span class="det-val" id="detail-cookingFuel">LPG</span></div>
+            </div>
+            <div class="detail-row">
+              <span class="det-icon"><i data-lucide="navigation"></i></span>
+              <div><span class="det-lbl">Migration Status</span><span class="det-val" id="detail-migrationStatus">No</span></div>
+            </div>
+            <div class="detail-row hidden" id="detail-migration-details-row">
+              <span class="det-icon"><i data-lucide="navigation"></i></span>
+              <div><span class="det-lbl">Migration Details</span><span class="det-val" id="detail-migrationDetails">N/A</span></div>
+            </div>
+            <div class="detail-row">
+              <span class="det-icon"><i data-lucide="credit-card"></i></span>
+              <div><span class="det-lbl">Aadhaar Number</span><span class="det-val" id="detail-aadharNumber">N/A</span></div>
+            </div>
+            <div class="detail-row">
+              <span class="det-icon"><i data-lucide="landmark"></i></span>
+              <div><span class="det-lbl">Bank Account</span><span class="det-val" id="detail-bankAccount">No</span></div>
+            </div>
+            <div class="detail-row">
+              <span class="det-icon"><i data-lucide="indian-rupee"></i></span>
+              <div><span class="det-lbl">Annual Income</span><span class="det-val" id="detail-annualIncome">₹0</span></div>
+            </div>
+            <div class="detail-row">
+              <span class="det-icon"><i data-lucide="trending-up"></i></span>
+              <div><span class="det-lbl">Income Source</span><span class="det-val" id="detail-mainIncomeSource">N/A</span></div>
+            </div>
+            <div class="detail-row">
+              <span class="det-icon"><i data-lucide="file-text"></i></span>
+              <div><span class="det-lbl">MNREGA Job Card</span><span class="det-val" id="detail-mnregaJobCard">No</span></div>
+            </div>
+            <div class="detail-row">
+              <span class="det-icon"><i data-lucide="key-round"></i></span>
+              <div><span class="det-lbl">House Status</span><span class="det-val" id="detail-houseOwnership">Own House</span></div>
+            </div>
+            <div class="detail-row">
+              <span class="det-icon"><i data-lucide="sprout"></i></span>
+              <div><span class="det-lbl">Land Owned (Acres)</span><span class="det-val" id="detail-landAcres">None</span></div>
+            </div>
+            <div class="detail-row">
+              <span class="det-icon"><i data-lucide="paw-print"></i></span>
+              <div><span class="det-lbl">Livestock Owned</span><span class="det-val" id="detail-livestock">None</span></div>
+            </div>
+            <div class="detail-row full-width-row border-top">
+              <span class="det-icon"><i data-lucide="car"></i></span>
+              <div><span class="det-lbl">Vehicles Owned</span><span class="det-val" id="detail-vehicles">None</span></div>
+            </div>
+            <div class="detail-row full-width-row">
+              <span class="det-icon"><i data-lucide="tv"></i></span>
+              <div><span class="det-lbl">Electronic Appliances</span><span class="det-val" id="detail-electronics">None</span></div>
+            </div>
+            <div class="detail-row full-width-row">
+              <span class="det-icon"><i data-lucide="wifi"></i></span>
+              <div><span class="det-lbl">Active Service Providers</span><span class="det-val" id="detail-serviceProviders">None</span></div>
+            </div>
+            <div class="detail-row full-width-row">
+              <span class="det-icon"><i data-lucide="droplet"></i></span>
+              <div><span class="det-lbl">Water Storage System</span><span class="det-val" id="detail-waterStorage">None</span></div>
+            </div>
+            <div class="detail-row">
+              <span class="det-icon"><i data-lucide="sprout"></i></span>
+              <div><span class="det-lbl">Agricultural Crops</span><span class="det-val" id="detail-agricultureCrops">None</span></div>
+            </div>
+            <div class="detail-row">
+              <span class="det-icon"><i data-lucide="flask"></i></span>
+              <div><span class="det-lbl">Chemicals/Fertilizers</span><span class="det-val" id="detail-agricultureChemicals">None</span></div>
+            </div>
+            <div class="detail-row">
+              <span class="det-icon"><i data-lucide="split"></i></span>
+              <div><span class="det-lbl">Irrigation Method</span><span class="det-val" id="detail-irrigation">None</span></div>
+            </div>
+            <div class="detail-row">
+              <span class="det-icon"><i data-lucide="activity"></i></span>
+              <div><span class="det-lbl">Chronic Health Issues</span><span class="det-val" id="detail-healthIssues">None</span></div>
+            </div>
+            <div class="detail-row full-width-row border-top">
+              <span class="det-icon"><i data-lucide="gift"></i></span>
+              <div><span class="det-lbl">Govt Schemes Benefits Availed</span><span class="det-val" id="detail-schemes">None</span></div>
+            </div>
+            <!-- Family Members List details -->
+            <div class="detail-row full-width-row border-top" id="detail-members-row">
+              <span class="det-icon"><i data-lucide="users"></i></span>
+              <div style="width: 100%;">
+                <span class="det-lbl">Family Members List</span>
+                <div class="table-container" style="margin-top: 8px;">
+                  <table class="directory-table" style="font-size: 0.8rem; box-shadow: none; border: 1px solid var(--border); width: 100%;">
+                    <thead>
+                      <tr style="background-color: var(--bg-app);">
+                        <th style="padding: 10px 14px;">Name</th>
+                        <th style="padding: 10px 14px;">Phone No</th>
+                        <th style="padding: 10px 14px;">Age</th>
+                        <th style="padding: 10px 14px;">Gender</th>
+                        <th style="padding: 10px 14px;">Relationship</th>
+                        <th style="padding: 10px 14px;">Education</th>
+                        <th style="padding: 10px 14px;">Occupation</th>
+                        <th style="padding: 10px 14px;">Category</th>
+                        <th style="padding: 10px 14px;">Health Issues</th>
+                        <th style="padding: 10px 14px;">MNREGA Card</th>
+                        <th style="padding: 10px 14px;">Aadhaar No</th>
+                        <th style="padding: 10px 14px;">Bank A/C</th>
+                        <th style="padding: 10px 14px;">Income (₹)</th>
+                      </tr>
+                    </thead>
+                    <tbody id="detail-members-table-body">
+                      <tr><td colspan="13" class="text-center" style="padding: 14px;">No members listed</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+            <div class="detail-row full-width-row border-top">
+              <span class="det-icon"><i data-lucide="calendar"></i></span>
+              <div><span class="det-lbl">Registration Date</span><span class="det-val" id="detail-createdAt">May 29, 2026</span></div>
+            </div>
+          </div>
+          <!-- Action buttons for detail card -->
+          <div class="detail-card-actions">
+            <button class="btn btn-secondary btn-small" id="detail-print-btn"><i data-lucide="printer"></i> Print Card</button>
+            <button class="btn btn-secondary btn-small" id="detail-download-btn"><i data-lucide="download"></i> QR Code</button>
+            <button class="btn btn-secondary btn-small edit-btn" id="detail-edit-btn" style="background-color: var(--green-pale); border-color: var(--green-light); color: var(--green-deep);"><i data-lucide="edit"></i> Edit</button>
+            <button class="btn btn-secondary btn-small delete-btn" id="detail-delete-btn" style="background-color: var(--danger-light); border-color: var(--danger); color: var(--danger);"><i data-lucide="trash-2"></i> Delete</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
