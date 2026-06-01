@@ -8,18 +8,59 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 const IS_VERCEL = !!process.env.VERCEL;
-const DATA_DIR = IS_VERCEL ? '/tmp' : path.join(__dirname, 'data');
+const DATA_DIR = process.env.DATA_DIR || (IS_VERCEL ? '/tmp' : path.join(__dirname, 'data'));
 const DATA_FILE = path.join(DATA_DIR, 'households.json');
-const UPLOADS_DIR = IS_VERCEL ? '/tmp/uploads' : path.join(__dirname, 'public', 'uploads');
+const UPLOADS_DIR = process.env.UPLOADS_DIR || (IS_VERCEL ? '/tmp/uploads' : path.join(__dirname, 'public', 'uploads'));
+const RENDER_BACKEND_URL = process.env.RENDER_BACKEND_URL;
+
+// Vercel reverse proxy to Render backend (if RENDER_BACKEND_URL is set)
+if (IS_VERCEL && RENDER_BACKEND_URL) {
+  const proxy = async (req, res, next) => {
+    if (req.originalUrl.startsWith('/api') || req.originalUrl.startsWith('/uploads')) {
+      const targetUrl = `${RENDER_BACKEND_URL.replace(/\/$/, '')}${req.originalUrl}`;
+      try {
+        const headers = { ...req.headers };
+        delete headers.host; // let fetch set correct host header
+
+        const fetchOptions = {
+          method: req.method,
+          headers: headers,
+          duplex: 'half'
+        };
+
+        if (req.method !== 'GET' && req.method !== 'HEAD') {
+          // Since this middleware runs before body parsers, stream the body directly
+          fetchOptions.body = req;
+        }
+
+        const response = await fetch(targetUrl, fetchOptions);
+
+        response.headers.forEach((value, key) => {
+          res.setHeader(key, value);
+        });
+
+        res.status(response.status);
+        const buffer = await response.arrayBuffer();
+        res.send(Buffer.from(buffer));
+      } catch (err) {
+        console.error(`Proxy error for ${targetUrl}:`, err);
+        res.status(500).json({ error: 'Proxy to backend failed' });
+      }
+    } else {
+      next();
+    }
+  };
+  app.use(proxy);
+}
 
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Serve uploaded files from /tmp/uploads on Vercel
-if (IS_VERCEL) {
-  app.use('/uploads', express.static('/tmp/uploads'));
+// Serve uploaded files from custom UPLOADS_DIR if it's not the default public/uploads
+if (UPLOADS_DIR !== path.join(__dirname, 'public', 'uploads')) {
+  app.use('/uploads', express.static(UPLOADS_DIR));
 }
 
 // Ensure directories and database file exist
@@ -27,13 +68,14 @@ if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
 }
 if (!fs.existsSync(DATA_FILE)) {
-  // Try to copy default database template to /tmp on Vercel
+  // Try to copy default database template to custom/tmp path
   const bundledSeed = path.join(__dirname, 'data', 'households.json');
-  if (IS_VERCEL && fs.existsSync(bundledSeed)) {
+  if (fs.existsSync(bundledSeed) && DATA_FILE !== bundledSeed) {
     try {
       fs.copyFileSync(bundledSeed, DATA_FILE);
+      console.log(`Successfully seeded database to ${DATA_FILE}`);
     } catch (err) {
-      console.error('Error copying seed data to /tmp:', err);
+      console.error('Error copying seed data:', err);
       fs.writeFileSync(DATA_FILE, JSON.stringify([], null, 2), 'utf8');
     }
   } else {

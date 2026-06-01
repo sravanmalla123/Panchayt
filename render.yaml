@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: panchayat-household-scanner
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: DATA_DIR
+        value: /var/data
+      - key: UPLOADS_DIR
+        value: /var/data/uploads
+      - key: NODE_ENV
+        value: production
+    disk:
+      name: panchayat-db-disk
+      mountPath: /var/data
+      sizeGB: 1
