@@ -4,10 +4,23 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Gram Panchayat Village Portal</title>
+  
+  <!-- PWA & Mobile Setup -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#1b4332">
+  <link rel="apple-touch-icon" href="/icon.svg">
+
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Leaflet Maps CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
   <!-- Stylesheet -->
   <link rel="stylesheet" href="style.css">
   <!-- Lucide Icons CDN -->
@@ -639,6 +652,34 @@
                   </div>
                 </div>
 
+                <!-- SECTION 4.5: GPS & Location Details -->
+                <div class="form-section-group mt-6">
+                  <h4 class="section-title-tag"><i data-lucide="map-pin"></i> GPS & Location Details</h4>
+                  <div class="form-grid">
+                    <div class="form-group">
+                      <label for="latitude">Latitude</label>
+                      <input type="text" id="latitude" readonly placeholder="Click 'Get GPS' to fetch">
+                    </div>
+                    <div class="form-group">
+                      <label for="longitude">Longitude</label>
+                      <input type="text" id="longitude" readonly placeholder="Click 'Get GPS' to fetch">
+                    </div>
+                    <div class="form-group full-width">
+                      <label for="gpsAddress">Detected Location Address</label>
+                      <input type="text" id="gpsAddress" readonly placeholder="Address will populate automatically">
+                    </div>
+                    <div class="form-group full-width">
+                      <button type="button" class="btn btn-secondary" id="get-gps-btn" style="background: var(--gold-light); border-color: var(--gold); color: #7a4a00; align-self: flex-start;">
+                        <i data-lucide="crosshair"></i> Get GPS Location &amp; Address
+                      </button>
+                    </div>
+                    <!-- Register Map Container -->
+                    <div class="form-group full-width" style="margin-top: 10px;">
+                      <div id="register-map" style="height: 250px; border-radius: var(--radius-lg); border: 1.5px solid var(--border); box-shadow: var(--shadow-sm); z-index: 5;"></div>
+                    </div>
+                  </div>
+                </div>
+
                 <!-- SECTION 5: House Photos -->
                 <div class="form-section-group mt-6">
                   <h4 class="section-title-tag"><i data-lucide="image"></i> House Photos</h4>
@@ -976,6 +1017,18 @@
                 </div>
               </div>
             </div>
+            <div class="detail-row full-width-row border-top" id="detail-map-row">
+              <span class="det-icon"><i data-lucide="map"></i></span>
+              <div style="width: 100%;">
+                <span class="det-lbl">Household GPS Location</span>
+                <div id="details-map" style="height: 220px; border-radius: var(--radius-lg); border: 1.5px solid var(--border); margin-top: 8px; z-index: 5; background: var(--bg-app);"></div>
+                <div style="margin-top: 12px; display: flex; gap: 10px;">
+                  <a id="detail-navigation-link" href="#" target="_blank" class="btn btn-secondary btn-small" style="background: var(--gold-light); border-color: var(--gold); color: #7a4a00; font-size: 0.8rem; text-decoration: none; padding: 6px 14px; display: inline-flex; align-items: center; gap: 6px;">
+                    <i data-lucide="navigation"></i> Navigate on Google Maps
+                  </a>
+                </div>
+              </div>
+            </div>
             <div class="detail-row full-width-row border-top">
               <span class="det-icon"><i data-lucide="calendar"></i></span>
               <div><span class="det-lbl">Registration Date</span><span class="det-val" id="detail-createdAt">May 29, 2026</span></div>
@@ -991,6 +1044,22 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- Mobile Bottom Navigation Bar -->
+  <div class="bottom-nav">
+    <button class="bottom-nav-item active" data-tab="home-tab">
+      <i data-lucide="layout-dashboard"></i>
+      <span>Dashboard</span>
+    </button>
+    <button class="bottom-nav-item" data-tab="register-tab">
+      <i data-lucide="user-plus"></i>
+      <span>Register</span>
+    </button>
+    <button class="bottom-nav-item" data-tab="directory-tab">
+      <i data-lucide="database"></i>
+      <span>Directory</span>
+    </button>
   </div>
 
   <script src="app.js"></script>

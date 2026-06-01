@@ -294,6 +294,9 @@ app.post('/api/households', async (req, res) => {
       phone: (m.phone || '').trim(),
       healthIssues: (m.healthIssues || '').trim() || 'None'
     })),
+    latitude: req.body.latitude ? parseFloat(req.body.latitude) : null,
+    longitude: req.body.longitude ? parseFloat(req.body.longitude) : null,
+    gpsAddress: (req.body.gpsAddress || '').trim(),
     createdAt: new Date().toISOString()
   };
 
@@ -386,6 +389,9 @@ app.put('/api/households/:id', async (req, res) => {
       phone: (m.phone || '').trim(),
       healthIssues: (m.healthIssues || '').trim() || 'None'
     })),
+    latitude: req.body.latitude !== undefined ? (req.body.latitude ? parseFloat(req.body.latitude) : null) : existingRecord.latitude,
+    longitude: req.body.longitude !== undefined ? (req.body.longitude ? parseFloat(req.body.longitude) : null) : existingRecord.longitude,
+    gpsAddress: req.body.gpsAddress !== undefined ? req.body.gpsAddress.trim() : existingRecord.gpsAddress,
     updatedAt: new Date().toISOString()
   };
 

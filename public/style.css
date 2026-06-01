@@ -1407,3 +1407,96 @@ body.dark-mode .badge-poverty.apl {
   border-color: var(--danger);
 }
 
+/* ── MAP CONTAINER STYLES ───────────────────────────────────── */
+#register-map, #details-map {
+  background: var(--bg-app);
+  border: 1.5px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  width: 100%;
+}
+.leaflet-container {
+  font-family: inherit !important;
+}
+
+/* ── PWA BOTTOM NAVIGATION BAR ──────────────────────────────── */
+.bottom-nav {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 62px;
+  background: var(--bg-card);
+  border-top: 1.5px solid var(--border);
+  box-shadow: 0 -4px 14px rgba(0, 0, 0, 0.06);
+  justify-content: space-around;
+  align-items: center;
+  z-index: 99;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.bottom-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  flex: 1;
+  height: 100%;
+  gap: 4px;
+  transition: var(--transition);
+}
+
+.bottom-nav-item i {
+  width: 20px;
+  height: 20px;
+  color: var(--text-muted);
+  transition: var(--transition);
+}
+
+.bottom-nav-item.active {
+  color: var(--green-mid);
+}
+
+.bottom-nav-item.active i {
+  color: var(--green-mid);
+  transform: translateY(-2px);
+}
+
+/* ── MOBILE APP RESPONSIVE ADAPTATION ───────────────────────── */
+@media (max-width: 768px) {
+  .bottom-nav {
+    display: flex;
+  }
+  .sidebar {
+    display: none !important;
+  }
+  .hamburger {
+    display: none !important;
+  }
+  .main-column {
+    padding-bottom: 62px;
+  }
+  .top-header {
+    padding: 0 16px;
+  }
+  .page-title {
+    font-size: 1.5rem;
+  }
+  .page-title-row {
+    margin-bottom: 12px;
+  }
+  .stats-row {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .tab-content {
+    padding: 16px 14px 40px !important;
+  }
+}
+

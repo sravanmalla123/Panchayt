@@ -1,3 +1,12 @@
+// Register Service Worker for PWA
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg => console.log('Service Worker registered successfully:', reg.scope))
+      .catch(err => console.log('Service Worker registration failed:', err));
+  });
+}
+
 // Global State
 let currentActiveTab = 'home-tab';
 let allHouseholds = [];
@@ -6,6 +15,12 @@ let uploadedPhotos = []; // Base64 data URLs or file paths
 let editMode = false;
 let editHouseholdId = null;
 let currentCarouselIndex = 0;
+
+// Leaflet Maps State
+let registerMap = null;
+let registerMarker = null;
+let detailsMap = null;
+let detailsMarker = null;
 
 document.addEventListener('DOMContentLoaded', () => {
   // Initialize Lucide Icons
@@ -24,6 +39,9 @@ document.addEventListener('DOMContentLoaded', () => {
   initSuccessModalHandlers();
   initDirectoryHandlers();
   initLanguageSelector();
+  
+  // Initialize Maps
+  initRegisterMap();
   
   // Load Stats
   fetchStats();
@@ -57,8 +75,15 @@ function initSidebarToggle() {
 // 1. Navigation / Tab Switching
 function initNavigation() {
   const navItems = document.querySelectorAll('.nav-item');
-
   navItems.forEach(item => {
+    item.addEventListener('click', () => {
+      const targetTab = item.getAttribute('data-tab');
+      switchTab(targetTab);
+    });
+  });
+
+  const bottomNavItems = document.querySelectorAll('.bottom-nav-item');
+  bottomNavItems.forEach(item => {
     item.addEventListener('click', () => {
       const targetTab = item.getAttribute('data-tab');
       switchTab(targetTab);
@@ -77,8 +102,17 @@ function initNavigation() {
 function switchTab(tabId) {
   currentActiveTab = tabId;
 
-  // Navigation item highlight
+  // Sidebar navigation item highlight
   document.querySelectorAll('.nav-item').forEach(item => {
+    if (item.getAttribute('data-tab') === tabId) {
+      item.classList.add('active');
+    } else {
+      item.classList.remove('active');
+    }
+  });
+
+  // Bottom navigation item highlight
+  document.querySelectorAll('.bottom-nav-item').forEach(item => {
     if (item.getAttribute('data-tab') === tabId) {
       item.classList.add('active');
     } else {
@@ -100,6 +134,13 @@ function switchTab(tabId) {
     fetchStats();
   } else if (tabId === 'directory-tab') {
     loadDirectory();
+  }
+
+  // Rescale maps when tabs switch to register-tab
+  if (tabId === 'register-tab' && registerMap) {
+    setTimeout(() => {
+      registerMap.invalidateSize();
+    }, 150);
   }
 }
 
@@ -271,6 +312,12 @@ function initFormInteractivity() {
       setTimeout(resetFormToRegister, 50);
     });
   }
+
+  // GPS Location button event
+  const getGpsBtn = document.getElementById('get-gps-btn');
+  if (getGpsBtn) {
+    getGpsBtn.addEventListener('click', fetchGpsLocation);
+  }
 }
 
 function updatePovertyClassification(income) {
@@ -313,6 +360,23 @@ function resetFormToRegister() {
     inp.classList.add('hidden');
     inp.value = 1;
   });
+
+  // Clear GPS Location inputs
+  const latInput = document.getElementById('latitude');
+  const lngInput = document.getElementById('longitude');
+  const addrInput = document.getElementById('gpsAddress');
+  if (latInput) latInput.value = '';
+  if (lngInput) lngInput.value = '';
+  if (addrInput) addrInput.value = '';
+
+  // Clear map marker
+  if (registerMarker) {
+    if (registerMap) registerMap.removeLayer(registerMarker);
+    registerMarker = null;
+  }
+  if (registerMap) {
+    registerMap.setView([16.5062, 80.6480], 13);
+  }
   
   if (window.lucide) lucide.createIcons();
 }
@@ -512,6 +576,11 @@ function initFormHandler() {
       livestock,
       photos: uploadedPhotos,
       
+      // GPS Coordinates
+      latitude: document.getElementById('latitude').value ? parseFloat(document.getElementById('latitude').value) : null,
+      longitude: document.getElementById('longitude').value ? parseFloat(document.getElementById('longitude').value) : null,
+      gpsAddress: document.getElementById('gpsAddress').value.trim(),
+      
       vehicles,
       electronics,
       serviceProviders,
@@ -686,8 +755,14 @@ async function fetchHouseholdDetails(id) {
     const data = await response.json();
     populateDetailsCard(data);
   } catch (err) {
-    console.error('Error fetching details:', err);
-    alert(err.message || 'Household ID not found in database.');
+    console.error('Error fetching details, trying local cache:', err);
+    // Offline / Network error fallback - search allHouseholds cache
+    const cachedRecord = allHouseholds.find(r => r.id.toUpperCase() === id.toUpperCase());
+    if (cachedRecord) {
+      populateDetailsCard(cachedRecord);
+    } else {
+      alert(err.message || 'Household ID not found (Offline: No cached data available).');
+    }
   }
 }
 
@@ -892,6 +967,40 @@ function populateDetailsCard(data) {
     detailsOverlay.classList.remove('hidden');
   }
   resultCard.classList.remove('hidden');
+
+  // Handle Map in Details Modal
+  const mapRow = document.getElementById('detail-map-row');
+  const navLink = document.getElementById('detail-navigation-link');
+  if (data.latitude && data.longitude) {
+    if (mapRow) mapRow.classList.remove('hidden');
+    if (navLink) {
+      navLink.href = `https://www.google.com/maps/search/?api=1&query=${data.latitude},${data.longitude}`;
+    }
+    
+    // Initialize or relocate details map
+    setTimeout(() => {
+      if (!detailsMap) {
+        detailsMap = L.map('details-map').setView([data.latitude, data.longitude], 16);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '© OpenStreetMap contributors'
+        }).addTo(detailsMap);
+        
+        detailsMarker = L.marker([data.latitude, data.longitude]).addTo(detailsMap);
+      } else {
+        detailsMap.setView([data.latitude, data.longitude], 16);
+        if (detailsMarker) {
+          detailsMarker.setLatLng([data.latitude, data.longitude]);
+        } else {
+          detailsMarker = L.marker([data.latitude, data.longitude]).addTo(detailsMap);
+        }
+      }
+      detailsMap.invalidateSize();
+    }, 150);
+  } else {
+    if (mapRow) mapRow.classList.add('hidden');
+  }
+
   if (window.lucide) lucide.createIcons();
 }
 
@@ -928,18 +1037,36 @@ async function loadDirectory() {
     allHouseholds = await response.json();
     allHouseholds.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     
+    // Save to local storage for offline use
+    localStorage.setItem('allHouseholds', JSON.stringify(allHouseholds));
+    
     renderFilteredDirectory();
   } catch (err) {
     console.error('Error fetching directory database:', err);
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="8" class="text-center py-8" style="color:var(--danger)">
-          <i data-lucide="alert-triangle" style="margin:0 auto 8px auto; display:block; width:30px; height:30px;"></i>
-          Failed to load records. Make sure the server is online.
-        </td>
-      </tr>
-    `;
-    if (window.lucide) lucide.createIcons();
+    
+    // Try to load from cache
+    const cached = localStorage.getItem('allHouseholds');
+    if (cached) {
+      allHouseholds = JSON.parse(cached);
+      renderFilteredDirectory();
+      
+      // Notify user they are viewing offline data
+      const statsSpan = document.getElementById('directory-stats');
+      if (statsSpan) {
+        statsSpan.innerHTML = `<span style="color:var(--gold); font-weight:bold;"><i data-lucide="wifi-off" style="width:14px; height:14px; display:inline-block; vertical-align:middle; margin-right:4px;"></i> Viewing Offline Data: Showing ${allHouseholds.length} cached records</span>`;
+        if (window.lucide) lucide.createIcons();
+      }
+    } else {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="8" class="text-center py-8" style="color:var(--danger)">
+            <i data-lucide="alert-triangle" style="margin:0 auto 8px auto; display:block; width:30px; height:30px;"></i>
+            Failed to load records. Make sure the server is online.
+          </td>
+        </tr>
+      `;
+      if (window.lucide) lucide.createIcons();
+    }
   }
 }
 
@@ -1042,6 +1169,8 @@ async function fetchStats() {
       const data = await response.json();
       const count = data.length;
       
+      localStorage.setItem('totalHouseholdsCount', count);
+      
       const totalCountEl = document.getElementById('total-households-count');
       if (totalCountEl) totalCountEl.textContent = count;
       
@@ -1050,11 +1179,15 @@ async function fetchStats() {
     }
   } catch (err) {
     console.error('Error updating household count:', err);
+    
+    const cachedCount = localStorage.getItem('totalHouseholdsCount');
+    const displayCount = cachedCount !== null ? cachedCount : 'N/A';
+    
     const totalCountEl = document.getElementById('total-households-count');
-    if (totalCountEl) totalCountEl.textContent = 'N/A';
+    if (totalCountEl) totalCountEl.textContent = displayCount;
     
     const portalCountEl = document.getElementById('portal-families-count');
-    if (portalCountEl) portalCountEl.textContent = 'N/A';
+    if (portalCountEl) portalCountEl.textContent = displayCount;
   }
 }
 
@@ -1790,6 +1923,34 @@ async function loadHouseholdForEdit(id) {
     // Photos
     uploadedPhotos = data.photos || [];
     renderPhotoPreviews();
+
+    // GPS Coordinates
+    const latInput = document.getElementById('latitude');
+    const lngInput = document.getElementById('longitude');
+    const addrInput = document.getElementById('gpsAddress');
+    if (latInput) latInput.value = data.latitude !== null && data.latitude !== undefined ? data.latitude : '';
+    if (lngInput) lngInput.value = data.longitude !== null && data.longitude !== undefined ? data.longitude : '';
+    if (addrInput) addrInput.value = data.gpsAddress || '';
+
+    // Update map marker
+    if (data.latitude && data.longitude) {
+      setTimeout(() => {
+        if (registerMap) {
+          registerMap.setView([data.latitude, data.longitude], 16);
+          if (registerMarker) {
+            registerMarker.setLatLng([data.latitude, data.longitude]);
+          } else {
+            registerMarker = L.marker([data.latitude, data.longitude]).addTo(registerMap);
+          }
+          registerMap.invalidateSize();
+        }
+      }, 200);
+    } else {
+      if (registerMarker) {
+        if (registerMap) registerMap.removeLayer(registerMarker);
+        registerMarker = null;
+      }
+    }
     
     if (window.lucide) lucide.createIcons();
     
@@ -1830,5 +1991,113 @@ async function deleteHousehold(id) {
     console.error('Error deleting household:', err);
     alert(`Failed to delete household ${id}. Make sure the server is online.`);
   }
+}
+
+// Initialize registration location map
+function initRegisterMap() {
+  const mapElement = document.getElementById('register-map');
+  if (!mapElement) return;
+
+  // Center at Vijayawada, Andhra Pradesh [16.5062, 80.6480] by default
+  registerMap = L.map('register-map').setView([16.5062, 80.6480], 13);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© OpenStreetMap contributors'
+  }).addTo(registerMap);
+
+  // Enable clicking on map to manually position marker
+  registerMap.on('click', async (e) => {
+    const { lat, lng } = e.latlng;
+    updateGPSFields(lat, lng);
+  });
+}
+
+// Helper to update GPS fields and place marker
+async function updateGPSFields(lat, lng) {
+  const latInput = document.getElementById('latitude');
+  const lngInput = document.getElementById('longitude');
+  const addrInput = document.getElementById('gpsAddress');
+
+  if (latInput) latInput.value = lat.toFixed(7);
+  if (lngInput) lngInput.value = lng.toFixed(7);
+  if (addrInput) addrInput.value = 'Fetching address...';
+
+  // Move or add marker
+  if (registerMarker) {
+    registerMarker.setLatLng([lat, lng]);
+  } else {
+    registerMarker = L.marker([lat, lng]).addTo(registerMap);
+  }
+
+  registerMap.setView([lat, lng]);
+
+  // Fetch address via reverse geocoding
+  try {
+    const geoUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`;
+    const response = await fetch(geoUrl, {
+      headers: { 'Accept-Language': 'en' }
+    });
+    const data = await response.json();
+    const addressStr = data.display_name || `Lat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)}`;
+    if (addrInput) addrInput.value = addressStr;
+  } catch (err) {
+    console.error('Error reverse geocoding:', err);
+    if (addrInput) addrInput.value = `Lat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)} (Address lookup failed)`;
+  }
+}
+
+// Click handler to get actual device GPS location
+function fetchGpsLocation() {
+  const getGpsBtn = document.getElementById('get-gps-btn');
+  const addrInput = document.getElementById('gpsAddress');
+
+  if (getGpsBtn) {
+    getGpsBtn.disabled = true;
+    getGpsBtn.innerHTML = '<span class="spinner" style="width:14px; height:14px; border-width:2px; display:inline-block; vertical-align:middle; margin-right:4px;"></span> Locating...';
+  }
+  if (addrInput) addrInput.value = 'Requesting GPS coordinates...';
+
+  const geoOptions = {
+    enableHighAccuracy: true,
+    timeout: 10000,
+    maximumAge: 0
+  };
+
+  navigator.geolocation.getCurrentPosition(
+    async (position) => {
+      const lat = position.coords.latitude;
+      const lng = position.coords.longitude;
+      
+      await updateGPSFields(lat, lng);
+      
+      if (getGpsBtn) {
+        getGpsBtn.disabled = false;
+        getGpsBtn.innerHTML = '<i data-lucide="crosshair"></i> Get GPS Location &amp; Address';
+        if (window.lucide) lucide.createIcons();
+      }
+    },
+    (err) => {
+      console.error('Geolocation error:', err);
+      let errMsg = 'Failed to fetch GPS coordinates';
+      if (err.code === err.PERMISSION_DENIED) {
+        errMsg = 'GPS Permission Denied. Please enable location services in browser settings.';
+      } else if (err.code === err.POSITION_UNAVAILABLE) {
+        errMsg = 'Location information is unavailable.';
+      } else if (err.code === err.TIMEOUT) {
+        errMsg = 'Location request timed out.';
+      }
+      
+      if (addrInput) addrInput.value = errMsg;
+      alert(`GPS Error: ${errMsg}`);
+
+      if (getGpsBtn) {
+        getGpsBtn.disabled = false;
+        getGpsBtn.innerHTML = '<i data-lucide="crosshair"></i> Get GPS Location &amp; Address';
+        if (window.lucide) lucide.createIcons();
+      }
+    },
+    geoOptions
+  );
 }
 
