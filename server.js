@@ -1,8 +1,10 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
 const QRCode = require('qrcode');
+const { Pool } = require('pg');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -12,6 +14,51 @@ const DATA_DIR = process.env.DATA_DIR || (IS_VERCEL ? '/tmp' : path.join(__dirna
 const DATA_FILE = path.join(DATA_DIR, 'households.json');
 const UPLOADS_DIR = process.env.UPLOADS_DIR || (IS_VERCEL ? '/tmp/uploads' : path.join(__dirname, 'public', 'uploads'));
 const RENDER_BACKEND_URL = process.env.RENDER_BACKEND_URL;
+
+// Supabase PostgreSQL Configuration
+const DATABASE_URL = process.env.DATABASE_URL || process.env.SUPABASE_DATABASE_URL;
+let dbPool = null;
+let supabaseActive = false;
+let dbInitPromise = null;
+
+async function connectDatabase() {
+  if (DATABASE_URL) {
+    try {
+      dbPool = new Pool({
+        connectionString: DATABASE_URL,
+        ssl: {
+          rejectUnauthorized: false
+        }
+      });
+      // Test connection and auto-create households table if missing
+      await dbPool.query('SELECT NOW()');
+      await dbPool.query(`
+        CREATE TABLE IF NOT EXISTS households (
+          id TEXT PRIMARY KEY,
+          data JSONB,
+          created_at TIMESTAMPTZ DEFAULT NOW()
+        );
+      `);
+      console.log('Connected to Supabase PostgreSQL database successfully.');
+      supabaseActive = true;
+    } catch (err) {
+      console.error('Failed to connect to Supabase, falling back to local JSON database:', err);
+      supabaseActive = false;
+      dbPool = null;
+    }
+  } else {
+    console.warn('\n⚠️ WARNING: DATABASE_URL / SUPABASE_DATABASE_URL environment variable is not defined.');
+    console.warn('⚠️ Operating in local JSON file mode. NOTE: All data will be DELETED periodically if hosted on Vercel or Render free tier!\n');
+    supabaseActive = false;
+  }
+}
+
+function getDbInitPromise() {
+  if (!dbInitPromise) {
+    dbInitPromise = connectDatabase();
+  }
+  return dbInitPromise;
+}
 
 // Vercel reverse proxy to Render backend (if RENDER_BACKEND_URL is set)
 if (IS_VERCEL && RENDER_BACKEND_URL) {
@@ -57,6 +104,14 @@ if (IS_VERCEL && RENDER_BACKEND_URL) {
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Middleware to ensure DB connection is ready (important for Vercel/serverless cold starts)
+app.use('/api', async (req, res, next) => {
+  if (DATABASE_URL) {
+    await getDbInitPromise();
+  }
+  next();
+});
 
 // Serve uploaded files from custom UPLOADS_DIR if it's not the default public/uploads
 if (UPLOADS_DIR !== path.join(__dirname, 'public', 'uploads')) {
@@ -139,7 +194,7 @@ function calculatePovertyStatus(annualIncome) {
 }
 
 
-// Database Helpers
+// Database Helpers (Local File Fallback)
 function readDatabase() {
   try {
     const data = fs.readFileSync(DATA_FILE, 'utf8');
@@ -176,19 +231,118 @@ function getNextHouseholdId(records) {
   return 'H' + String(nextNum).padStart(3, '0');
 }
 
+// Database Abstraction Layer (Supports Supabase PostgreSQL & Local Fallback)
+async function getHouseholds() {
+  if (supabaseActive) {
+    try {
+      const res = await dbPool.query('SELECT data FROM households ORDER BY id ASC');
+      return res.rows.map(row => row.data);
+    } catch (err) {
+      console.error('Error fetching from Supabase, falling back to local database:', err);
+    }
+  }
+  return readDatabase();
+}
+
+async function getHouseholdById(id) {
+  if (supabaseActive) {
+    try {
+      const res = await dbPool.query('SELECT data FROM households WHERE LOWER(id) = LOWER($1)', [id]);
+      if (res.rows.length > 0) {
+        return res.rows[0].data;
+      }
+      return null;
+    } catch (err) {
+      console.error('Error fetching household from Supabase, falling back to local database:', err);
+    }
+  }
+  const records = readDatabase();
+  return records.find(r => r.id.toUpperCase() === id.toUpperCase());
+}
+
+async function saveHousehold(record) {
+  if (supabaseActive) {
+    try {
+      await dbPool.query(
+        'INSERT INTO households (id, data) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data',
+        [record.id, JSON.stringify(record)]
+      );
+      return true;
+    } catch (err) {
+      console.error('Error saving to Supabase, falling back to local database:', err);
+    }
+  }
+  const records = readDatabase();
+  records.push(record);
+  return writeDatabase(records);
+}
+
+async function updateHousehold(id, updatedRecord) {
+  if (supabaseActive) {
+    try {
+      const res = await dbPool.query(
+        'UPDATE households SET data = $2 WHERE LOWER(id) = LOWER($1)',
+        [id, JSON.stringify(updatedRecord)]
+      );
+      return res.rowCount > 0;
+    } catch (err) {
+      console.error('Error updating in Supabase, falling back to local database:', err);
+    }
+  }
+  const records = readDatabase();
+  const index = records.findIndex(r => r.id.toUpperCase() === id.toUpperCase());
+  if (index === -1) return false;
+  records[index] = updatedRecord;
+  return writeDatabase(records);
+}
+
+async function deleteHousehold(id) {
+  if (supabaseActive) {
+    try {
+      const res = await dbPool.query('DELETE FROM households WHERE LOWER(id) = LOWER($1)', [id]);
+      return res.rowCount > 0;
+    } catch (err) {
+      console.error('Error deleting from Supabase, falling back to local database:', err);
+    }
+  }
+  const records = readDatabase();
+  const index = records.findIndex(r => r.id.toUpperCase() === id.toUpperCase());
+  if (index === -1) return false;
+  records.splice(index, 1);
+  return writeDatabase(records);
+}
+
+async function getNextId() {
+  if (supabaseActive) {
+    try {
+      const res = await dbPool.query(
+        "SELECT id FROM households WHERE id ~ '^H[0-9]+$' ORDER BY id DESC LIMIT 1"
+      );
+      if (res.rows.length === 0) return 'H001';
+      const lastId = res.rows[0].id;
+      const num = parseInt(lastId.substring(1), 10);
+      const nextNum = num + 1;
+      return 'H' + String(nextNum).padStart(3, '0');
+    } catch (err) {
+      console.error('Error getting next ID from Supabase, falling back to local database:', err);
+    }
+  }
+  const records = readDatabase();
+  return getNextHouseholdId(records);
+}
+
 // API Endpoints
 
 // 1. Get all households
-app.get('/api/households', (req, res) => {
-  const records = readDatabase();
+app.get('/api/households', async (req, res) => {
+  const records = await getHouseholds();
   res.json(records);
 });
 
 // 2. Get household by ID (with QR code generation)
 app.get('/api/households/:id', async (req, res) => {
   const { id } = req.params;
-  const records = readDatabase();
-  const record = records.find(r => r.id.toUpperCase() === id.toUpperCase());
+  const record = await getHouseholdById(id);
 
   if (!record) {
     return res.status(404).json({ error: `Household with ID ${id} not found` });
@@ -248,8 +402,7 @@ app.post('/api/households', async (req, res) => {
     return res.status(400).json({ error: 'Household Head Name is required' });
   }
 
-  const records = readDatabase();
-  const newId = getNextHouseholdId(records);
+  const newId = await getNextId();
 
   // Save base64-encoded photos to files
   const savedPhotoUrls = savePhotos(newId, req.body.photos);
@@ -300,9 +453,7 @@ app.post('/api/households', async (req, res) => {
     createdAt: new Date().toISOString()
   };
 
-  records.push(newRecord);
-  
-  if (writeDatabase(records)) {
+  if (await saveHousehold(newRecord)) {
     const host = req.headers.host;
     const protocol = req.headers['x-forwarded-proto'] || 'http';
     const qrUrl = `${protocol}://${host}/?id=${newId}`;
@@ -329,14 +480,11 @@ app.post('/api/households', async (req, res) => {
 // 4. Update an existing household
 app.put('/api/households/:id', async (req, res) => {
   const { id } = req.params;
-  const records = readDatabase();
-  const index = records.findIndex(r => r.id.toUpperCase() === id.toUpperCase());
+  const existingRecord = await getHouseholdById(id);
 
-  if (index === -1) {
+  if (!existingRecord) {
     return res.status(404).json({ error: `Household with ID ${id} not found` });
   }
-
-  const existingRecord = records[index];
 
   // Process photos
   const oldPhotos = existingRecord.photos || [];
@@ -395,9 +543,7 @@ app.put('/api/households/:id', async (req, res) => {
     updatedAt: new Date().toISOString()
   };
 
-  records[index] = updatedRecord;
-
-  if (writeDatabase(records)) {
+  if (await updateHousehold(id, updatedRecord)) {
     const host = req.headers.host;
     const protocol = req.headers['x-forwarded-proto'] || 'http';
     const qrUrl = `${protocol}://${host}/?id=${id}`;
@@ -422,23 +568,20 @@ app.put('/api/households/:id', async (req, res) => {
 });
 
 // 5. Delete a household
-app.delete('/api/households/:id', (req, res) => {
+app.delete('/api/households/:id', async (req, res) => {
   const { id } = req.params;
-  const records = readDatabase();
-  const index = records.findIndex(r => r.id.toUpperCase() === id.toUpperCase());
+  const record = await getHouseholdById(id);
 
-  if (index === -1) {
+  if (!record) {
     return res.status(404).json({ error: `Household with ID ${id} not found` });
   }
 
-  const [deletedRecord] = records.splice(index, 1);
-
   // Clean up associated photos
-  if (deletedRecord.photos && deletedRecord.photos.length) {
-    deletePhotos(deletedRecord.photos);
+  if (record.photos && record.photos.length) {
+    deletePhotos(record.photos);
   }
 
-  if (writeDatabase(records)) {
+  if (await deleteHousehold(id)) {
     res.json({ message: `Household ${id} deleted successfully` });
   } else {
     res.status(500).json({ error: 'Failed to write to database' });
@@ -450,6 +593,9 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server is running at http://localhost:${PORT}`);
+// Start Server after connecting to Database
+getDbInitPromise().then(() => {
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server is running at http://localhost:${PORT}`);
+  });
 });
