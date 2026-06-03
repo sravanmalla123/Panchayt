@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const QRCode = require('qrcode');
 const { Pool } = require('pg');
+const cloudinary = require('cloudinary').v2;
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -20,6 +21,13 @@ const DATABASE_URL = process.env.DATABASE_URL || process.env.SUPABASE_DATABASE_U
 let dbPool = null;
 let supabaseActive = false;
 let dbInitPromise = null;
+
+// Cloudinary Configuration for Image Uploads
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'dqevrzhxe',
+  api_key: process.env.CLOUDINARY_API_KEY || '613463546287651',
+  api_secret: process.env.CLOUDINARY_API_SECRET || 'Fpe9fE6Hk4UgjJul6g0S2K-X6sw'
+});
 
 async function connectDatabase() {
   if (DATABASE_URL) {
@@ -142,38 +150,71 @@ if (!fs.existsSync(UPLOADS_DIR)) {
 }
 
 // Helpers for photo uploads
-function savePhotos(householdId, photosBase64) {
+async function savePhotos(householdId, photosBase64) {
   if (!photosBase64 || !Array.isArray(photosBase64)) return [];
   const urls = [];
   
-  photosBase64.forEach((base64Str, idx) => {
-    // If it's already a saved file URL, keep it
-    if (typeof base64Str === 'string' && base64Str.startsWith('/uploads/')) {
+  for (let idx = 0; idx < photosBase64.length; idx++) {
+    const base64Str = photosBase64[idx];
+    
+    // If it's already a saved Cloudinary URL or local file path, keep it
+    if (typeof base64Str === 'string' && (base64Str.startsWith('http') || base64Str.startsWith('/uploads/'))) {
       urls.push(base64Str);
-      return;
+      continue;
     }
     
     try {
-      const matches = base64Str.match(/^data:image\/([A-Za-z\-+\/]+);base64,(.+)$/);
-      if (!matches || matches.length !== 3) {
-        return;
-      }
-      const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1];
-      const buffer = Buffer.from(matches[2], 'base64');
-      const filename = `${householdId}_photo_${idx}_${Date.now()}.${ext}`;
-      const filepath = path.join(UPLOADS_DIR, filename);
-      fs.writeFileSync(filepath, buffer);
-      urls.push(`/uploads/${filename}`);
+      // Cloudinary handles base64 data URLs directly
+      const uploadResult = await cloudinary.uploader.upload(base64Str, {
+        folder: 'panchayat_photos',
+        public_id: `${householdId}_photo_${idx}_${Date.now()}`
+      });
+      urls.push(uploadResult.secure_url);
     } catch (err) {
-      console.error(`Error saving photo ${idx} for ${householdId}:`, err);
+      console.error(`Error saving photo ${idx} to Cloudinary for ${householdId}:`, err);
+      
+      // Fallback: save to local disk if Cloudinary fails
+      try {
+        const matches = base64Str.match(/^data:image\/([A-Za-z\-+\/]+);base64,(.+)$/);
+        if (matches && matches.length === 3) {
+          const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1];
+          const buffer = Buffer.from(matches[2], 'base64');
+          const filename = `${householdId}_photo_${idx}_${Date.now()}.${ext}`;
+          const filepath = path.join(UPLOADS_DIR, filename);
+          fs.writeFileSync(filepath, buffer);
+          urls.push(`/uploads/${filename}`);
+        }
+      } catch (localErr) {
+        console.error(`Local fallback also failed for photo ${idx}:`, localErr);
+      }
     }
-  });
+  }
   return urls;
 }
 
-function deletePhotos(photoUrls) {
+function getPublicIdFromUrl(url) {
+  try {
+    if (!url.includes('res.cloudinary.com')) return null;
+    const parts = url.split('/image/upload/');
+    if (parts.length < 2) return null;
+    let path = parts[1]; // e.g. "v1716382103/panchayat_photos/H001_photo_0_1716382103.jpg"
+    // Remove version prefix if exists (e.g. "v1716382103/")
+    path = path.replace(/^v\d+\//, '');
+    // Strip file extension
+    const lastDotIdx = path.lastIndexOf('.');
+    if (lastDotIdx !== -1) {
+      path = path.substring(0, lastDotIdx);
+    }
+    return path;
+  } catch (err) {
+    console.error('Error parsing Cloudinary URL:', err);
+    return null;
+  }
+}
+
+async function deletePhotos(photoUrls) {
   if (!photoUrls || !Array.isArray(photoUrls)) return;
-  photoUrls.forEach(url => {
+  for (const url of photoUrls) {
     try {
       if (url.startsWith('/uploads/')) {
         const filename = path.basename(url);
@@ -181,11 +222,17 @@ function deletePhotos(photoUrls) {
         if (fs.existsSync(filepath)) {
           fs.unlinkSync(filepath);
         }
+      } else if (url.includes('res.cloudinary.com')) {
+        const publicId = getPublicIdFromUrl(url);
+        if (publicId) {
+          await cloudinary.uploader.destroy(publicId);
+          console.log(`Deleted photo ${publicId} from Cloudinary`);
+        }
       }
     } catch (err) {
       console.error(`Error deleting photo file ${url}:`, err);
     }
-  });
+  }
 }
 
 function calculatePovertyStatus(annualIncome) {
@@ -404,8 +451,8 @@ app.post('/api/households', async (req, res) => {
 
   const newId = await getNextId();
 
-  // Save base64-encoded photos to files
-  const savedPhotoUrls = savePhotos(newId, req.body.photos);
+  // Save base64-encoded photos to files (via Cloudinary)
+  const savedPhotoUrls = await savePhotos(newId, req.body.photos);
 
   const newRecord = {
     id: newId,
@@ -492,10 +539,10 @@ app.put('/api/households/:id', async (req, res) => {
   
   // Clean up deleted photo files
   const deletedPhotos = oldPhotos.filter(p => !incomingPhotos.includes(p));
-  deletePhotos(deletedPhotos);
+  await deletePhotos(deletedPhotos);
 
   // Save new photo files
-  const savedPhotoUrls = savePhotos(id, incomingPhotos);
+  const savedPhotoUrls = await savePhotos(id, incomingPhotos);
 
   const updatedRecord = {
     ...existingRecord,
@@ -578,7 +625,7 @@ app.delete('/api/households/:id', async (req, res) => {
 
   // Clean up associated photos
   if (record.photos && record.photos.length) {
-    deletePhotos(record.photos);
+    await deletePhotos(record.photos);
   }
 
   if (await deleteHousehold(id)) {
