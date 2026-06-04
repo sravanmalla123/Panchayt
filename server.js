@@ -7,6 +7,24 @@ const QRCode = require('qrcode');
 const { Pool } = require('pg');
 const cloudinary = require('cloudinary').v2;
 
+// Cloudinary Configuration
+const CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME || 'dqevrzhxe';
+const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY || '613463546287651';
+const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET || 'Fpe9fE6Hk4UgjJul6g0S2K-X6sw';
+
+let cloudinaryActive = false;
+if (CLOUDINARY_CLOUD_NAME && CLOUDINARY_API_KEY && CLOUDINARY_API_SECRET) {
+  cloudinary.config({
+    cloud_name: CLOUDINARY_CLOUD_NAME,
+    api_key: CLOUDINARY_API_KEY,
+    api_secret: CLOUDINARY_API_SECRET
+  });
+  console.log('Cloudinary configured successfully.');
+  cloudinaryActive = true;
+} else {
+  console.warn('⚠️ WARNING: Cloudinary environment variables not fully configured. Cloudinary uploads will be skipped.');
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -45,9 +63,12 @@ async function connectDatabase() {
           household_id TEXT UNIQUE,
           head_name TEXT,
           mobile_number TEXT,
-          village_name TEXT,
+          aadhaar_number TEXT,
           address TEXT,
-          family_members_count INTEGER,
+          village TEXT,
+          family_members INTEGER,
+          occupation TEXT,
+          status TEXT,
           data JSONB,
           created_at TIMESTAMPTZ DEFAULT NOW(),
           updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -297,6 +318,26 @@ function getStorageFilePathFromUrl(url) {
   }
 }
 
+function getCloudinaryPublicId(url) {
+  try {
+    if (!url.includes('res.cloudinary.com')) return null;
+    const parts = url.split('/image/upload/');
+    if (parts.length < 2) return null;
+    const pathAfterUpload = parts[1];
+    const versionMatch = pathAfterUpload.match(/^v\d+\/(.+)$/);
+    let publicIdWithExtension = pathAfterUpload;
+    if (versionMatch) {
+      publicIdWithExtension = versionMatch[1];
+    }
+    const lastDotIdx = publicIdWithExtension.lastIndexOf('.');
+    if (lastDotIdx === -1) return publicIdWithExtension;
+    return publicIdWithExtension.substring(0, lastDotIdx);
+  } catch (err) {
+    console.error('Error parsing Cloudinary URL:', err);
+    return null;
+  }
+}
+
 async function savePhotos(householdId, photosBase64) {
   if (!photosBase64 || !Array.isArray(photosBase64)) return [];
   const urls = [];
@@ -310,27 +351,49 @@ async function savePhotos(householdId, photosBase64) {
     }
     
     const filename = `${householdId}_photo_${idx}_${Date.now()}.png`;
-    
+    let uploadedSuccessfully = false;
+
+    // 1. Try Cloudinary
+    if (cloudinaryActive) {
+      try {
+        console.log(`Uploading photo ${idx} to Cloudinary for ${householdId}...`);
+        const uploadResult = await cloudinary.uploader.upload(base64Str, {
+          folder: 'panchayat_households'
+        });
+        urls.push(uploadResult.secure_url);
+        console.log(`Successfully uploaded photo ${idx} to Cloudinary: ${uploadResult.secure_url}`);
+        uploadedSuccessfully = true;
+      } catch (cloudinaryErr) {
+        console.error(`Error saving photo ${idx} to Cloudinary for ${householdId}, trying Supabase fallback:`, cloudinaryErr);
+      }
+    }
+
+    if (uploadedSuccessfully) continue;
+
+    // 2. Try Supabase Storage
     try {
       const publicUrl = await uploadToSupabaseStorage('house-photos', filename, base64Str);
       urls.push(publicUrl);
+      uploadedSuccessfully = true;
     } catch (err) {
       console.error(`Error saving photo ${idx} to Supabase Storage for ${householdId}:`, err);
+    }
+
+    if (uploadedSuccessfully) continue;
       
-      // Fallback: save to local disk
-      try {
-        const matches = base64Str.match(/^data:image\/([A-Za-z\-+\/]+);base64,(.+)$/);
-        if (matches && matches.length === 3) {
-          const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1];
-          const buffer = Buffer.from(matches[2], 'base64');
-          const localFilename = `${householdId}_photo_${idx}_${Date.now()}.${ext}`;
-          const filepath = path.join(UPLOADS_DIR, localFilename);
-          fs.writeFileSync(filepath, buffer);
-          urls.push(`/uploads/${localFilename}`);
-        }
-      } catch (localErr) {
-        console.error(`Local fallback also failed for photo ${idx}:`, localErr);
+    // 3. Fallback: save to local disk
+    try {
+      const matches = base64Str.match(/^data:image\/([A-Za-z\-+\/]+);base64,(.+)$/);
+      if (matches && matches.length === 3) {
+        const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1];
+        const buffer = Buffer.from(matches[2], 'base64');
+        const localFilename = `${householdId}_photo_${idx}_${Date.now()}.${ext}`;
+        const filepath = path.join(UPLOADS_DIR, localFilename);
+        fs.writeFileSync(filepath, buffer);
+        urls.push(`/uploads/${localFilename}`);
       }
+    } catch (localErr) {
+      console.error(`Local fallback also failed for photo ${idx}:`, localErr);
     }
   }
   return urls;
@@ -351,6 +414,12 @@ async function deletePhotos(photoUrls) {
         if (filePath) {
           await deleteFromSupabaseStorage('house-photos', filePath);
           console.log(`Deleted photo ${filePath} from Supabase Storage`);
+        }
+      } else if (url.includes('res.cloudinary.com')) {
+        const publicId = getCloudinaryPublicId(url);
+        if (publicId && cloudinaryActive) {
+          await cloudinary.uploader.destroy(publicId);
+          console.log(`Deleted photo ${publicId} from Cloudinary`);
         }
       }
     } catch (err) {
@@ -437,15 +506,18 @@ async function saveHousehold(record) {
       
       await client.query(
         `INSERT INTO households (
-          id, household_id, head_name, mobile_number, village_name, address, family_members_count, data
-        ) VALUES ($1, $1, $2, $3, $4, $5, $6, $7)`,
+          id, household_id, head_name, mobile_number, aadhaar_number, address, village, family_members, occupation, status, data
+        ) VALUES ($1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
         [
           record.id,
           record.headName,
           record.contactNo,
-          record.village || 'Ward 1',
+          record.aadharNumber || '',
           record.gpsAddress || '',
+          record.village || 'Ward 1',
           record.familyMembers || 0,
+          record.occupation || 'Agriculture',
+          record.status || 'Active',
           JSON.stringify(record)
         ]
       );
@@ -484,19 +556,25 @@ async function updateHousehold(id, updatedRecord) {
            household_id = $1,
            head_name = $2,
            mobile_number = $3,
-           village_name = $4,
+           aadhaar_number = $4,
            address = $5,
-           family_members_count = $6,
-           data = $7,
+           village = $6,
+           family_members = $7,
+           occupation = $8,
+           status = $9,
+           data = $10,
            updated_at = NOW()
          WHERE LOWER(id) = LOWER($1)`,
         [
           id,
           updatedRecord.headName,
           updatedRecord.contactNo,
-          updatedRecord.village || 'Ward 1',
+          updatedRecord.aadharNumber || '',
           updatedRecord.gpsAddress || '',
+          updatedRecord.village || 'Ward 1',
           updatedRecord.familyMembers || 0,
+          updatedRecord.occupation || 'Agriculture',
+          updatedRecord.status || 'Active',
           JSON.stringify(updatedRecord)
         ]
       );

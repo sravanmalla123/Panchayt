@@ -59,9 +59,12 @@ async function runMigration() {
         household_id TEXT UNIQUE,
         head_name TEXT,
         mobile_number TEXT,
-        village_name TEXT,
+        aadhaar_number TEXT,
         address TEXT,
-        family_members_count INTEGER,
+        village TEXT,
+        family_members INTEGER,
+        occupation TEXT,
+        status TEXT,
         data JSONB,
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -94,24 +97,30 @@ async function runMigration() {
     for (const record of localRecords) {
       await client.query(
         `INSERT INTO households (
-          id, household_id, head_name, mobile_number, village_name, address, family_members_count, data
-        ) VALUES ($1, $1, $2, $3, $4, $5, $6, $7)
+          id, household_id, head_name, mobile_number, aadhaar_number, address, village, family_members, occupation, status, data
+        ) VALUES ($1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
          ON CONFLICT (id) DO UPDATE SET
            household_id = EXCLUDED.household_id,
            head_name = EXCLUDED.head_name,
            mobile_number = EXCLUDED.mobile_number,
-           village_name = EXCLUDED.village_name,
+           aadhaar_number = EXCLUDED.aadhaar_number,
            address = EXCLUDED.address,
-           family_members_count = EXCLUDED.family_members_count,
+           village = EXCLUDED.village,
+           family_members = EXCLUDED.family_members,
+           occupation = EXCLUDED.occupation,
+           status = EXCLUDED.status,
            data = EXCLUDED.data,
            updated_at = NOW()`,
         [
           record.id,
           record.headName,
           record.contactNo,
-          record.village || 'Ward 1',
+          record.aadharNumber || '',
           record.gpsAddress || '',
+          record.village || 'Ward 1',
           record.familyMembers || 0,
+          record.occupation || 'Agriculture',
+          record.status || 'Active',
           JSON.stringify(record)
         ]
       );
