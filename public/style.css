@@ -1135,25 +1135,192 @@ body.dark-mode .ticker-bar { background: #451a03; border-bottom-color: rgba(217,
 .bg-glow { display: none; }
 
 /* ── PRINT ──────────────────────────────────────────────────── */
-.print-only { display: none; }
+.print-only { display: none !important; }
+
 @media print {
-  .print-only { display: block !important; }
-  body > *:not(#print-receipt) { display: none !important; }
-  #print-receipt { display: block !important; }
-  .print-header { text-align: center; padding: 20px; border-bottom: 2px solid #1a4731; }
-  .print-header h2 { font-size: 1.3rem; font-weight: 800; color: #1a4731; }
-  .print-subtitle { font-size: 0.82rem; color: #7a8f7a; }
-  .print-body { display: flex; gap: 20px; padding: 18px; }
-  .print-details { flex: 1; }
-  .print-row { display: flex; gap: 8px; padding: 6px 0; border-bottom: 1px solid #e0e0e0; font-size: 0.88rem; }
-  .print-label { font-weight: 700; color: #1a4731; min-width: 160px; }
-  .print-highlight { color: #d4a017; font-size: 1.1rem; }
-  .print-qr-section { text-align: center; }
-  .print-qr-section img { width: 140px; height: 140px; }
-  .print-qr-instructions { font-size: 0.72rem; color: #7a8f7a; margin-top: 8px; }
-  .print-footer { text-align: center; padding: 14px; border-top: 1px solid #e0e0e0; font-size: 0.78rem; color: #7a8f7a; }
+  /* Hide all regular elements on screen */
+  body > * { display: none !important; }
+  
+  /* Show only the active print view */
+  .print-only.print-active { display: block !important; }
+  
+  /* Print Receipt (Card) Styling */
+  #print-receipt.print-active {
+    display: block !important;
+    max-width: 600px;
+    margin: 0 auto;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background: #fff;
+  }
+  #print-receipt .print-header { text-align: center; padding: 20px; border-bottom: 2px solid #1a4731; }
+  #print-receipt .print-header h2 { font-size: 1.3rem; font-weight: 800; color: #1a4731; }
+  #print-receipt .print-subtitle { font-size: 0.82rem; color: #7a8f7a; }
+  #print-receipt .print-body { display: flex; gap: 20px; padding: 18px; }
+  #print-receipt .print-details { flex: 1; }
+  #print-receipt .print-row { display: flex; gap: 8px; padding: 6px 0; border-bottom: 1px solid #e0e0e0; font-size: 0.88rem; }
+  #print-receipt .print-label { font-weight: 700; color: #1a4731; min-width: 160px; }
+  #print-receipt .print-highlight { color: #d4a017; font-size: 1.1rem; }
+  #print-receipt .print-qr-section { text-align: center; }
+  #print-receipt .print-qr-section img { width: 140px; height: 140px; }
+  #print-receipt .print-qr-instructions { font-size: 0.72rem; color: #7a8f7a; margin-top: 8px; }
+  #print-receipt .print-footer { text-align: center; padding: 14px; border-top: 1px solid #e0e0e0; font-size: 0.78rem; color: #7a8f7a; }
+  
+  /* Print Full Report (A4 Details) Styling */
+  #print-full-details.print-active {
+    display: block !important;
+    font-family: 'Plus Jakarta Sans', 'Outfit', Arial, sans-serif;
+    color: #1f2937;
+    background: #fff;
+    padding: 10px;
+  }
+  #print-full-details .report-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 3px double #1b4332;
+    padding-bottom: 15px;
+    margin-bottom: 20px;
+  }
+  #print-full-details .report-title-section {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+  }
+  #print-full-details .report-emblem {
+    width: 50px;
+    height: 50px;
+  }
+  #print-full-details .report-title-text h1 {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: #1b4332;
+    margin: 0;
+    letter-spacing: 0.5px;
+  }
+  #print-full-details .report-title-text p {
+    font-size: 0.8rem;
+    color: #4b5563;
+    margin: 2px 0 0 0;
+    font-weight: 600;
+  }
+  #print-full-details .report-meta {
+    text-align: right;
+  }
+  #print-full-details .report-meta h2 {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #b45309;
+    margin: 0;
+  }
+  #print-full-details .report-meta p {
+    font-size: 0.78rem;
+    color: #6b7280;
+    margin: 4px 0 0 0;
+  }
+  #print-full-details .report-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  #print-full-details .report-section {
+    border: 1.5px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 14px;
+    background: #f9fafb;
+  }
+  #print-full-details .report-section.full-width {
+    grid-column: span 2;
+  }
+  #print-full-details .report-section-title {
+    font-size: 0.85rem;
+    font-weight: 800;
+    color: #1b4332;
+    border-bottom: 1.5px solid #1b4332;
+    padding-bottom: 6px;
+    margin: 0 0 10px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  #print-full-details .report-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 0;
+    border-bottom: 1px dashed #e5e7eb;
+    font-size: 0.8rem;
+  }
+  #print-full-details .report-row:last-child {
+    border-bottom: none;
+  }
+  #print-full-details .report-lbl {
+    font-weight: 600;
+    color: #4b5563;
+  }
+  #print-full-details .report-val {
+    font-weight: 700;
+    color: #111827;
+    text-align: right;
+  }
+  
+  #print-full-details table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 5px;
+    font-size: 0.75rem;
+  }
+  #print-full-details th, #print-full-details td {
+    border: 1px solid #d1d5db;
+    padding: 6px 8px;
+    text-align: left;
+  }
+  #print-full-details th {
+    background-color: #f3f4f6;
+    font-weight: 700;
+    color: #1b4332;
+  }
+  #print-full-details tr:nth-child(even) td {
+    background-color: #f9fafb;
+  }
+  
+  #print-full-details .report-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-top: 30px;
+    border-top: 1.5px solid #e5e7eb;
+    padding-top: 12px;
+    font-size: 0.75rem;
+    color: #4b5563;
+  }
+  #print-full-details .signature-block {
+    text-align: center;
+    width: 180px;
+  }
+  #print-full-details .signature-line {
+    border-bottom: 1px solid #111827;
+    margin-bottom: 4px;
+    height: 35px;
+  }
+  #print-full-details .signature-title {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #1b4332;
+  }
+  
+  #print-full-details .vehicle-badge {
+    display: inline-block;
+    background: #f3f4f6;
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 0.75rem;
+    margin: 2px;
+  }
+  
   hr { border: none; border-top: 1px solid #e0e0e0; }
 }
+
 
 /* ── SIDEBAR OVERLAY (mobile) ───────────────────────────────── */
 .sidebar-overlay {

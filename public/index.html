@@ -61,6 +61,140 @@
     </div>
   </div>
 
+  <!-- Print Full Details Layout (Hidden on Screen) -->
+  <div id="print-full-details" class="print-only">
+    <div class="report-header">
+      <div class="report-title-section">
+        <svg class="report-emblem" viewBox="0 0 100 100" width="50" height="50">
+          <circle cx="50" cy="50" r="45" fill="none" stroke="#1b4332" stroke-width="3.5"/>
+          <circle cx="50" cy="50" r="38" fill="#1b4332" opacity="0.15"/>
+          <path d="M50,18 L60,38 L82,38 L65,52 L74,75 L50,60 L26,75 L35,52 L18,38 L40,38 Z" fill="#1b4332"/>
+        </svg>
+        <div class="report-title-text">
+          <h1>గ్రామ పంచాయతీ | GRAM PANCHAYAT</h1>
+          <p>Official Household Survey & Asset Register Report</p>
+        </div>
+      </div>
+      <div class="report-meta">
+        <h2 id="print-f-id">H000</h2>
+        <p id="print-f-date">Date: --/--/----</p>
+      </div>
+    </div>
+
+    <div class="report-grid">
+      <!-- Section 1: Head of Household & Social Details -->
+      <div class="report-section">
+        <h3 class="report-section-title">Basic & Social Details</h3>
+        <div class="report-row"><span class="report-lbl">Head of Household Name:</span><span class="report-val" id="print-f-headName">N/A</span></div>
+        <div class="report-row"><span class="report-lbl">Social Category:</span><span class="report-val" id="print-f-category">N/A</span></div>
+        <div class="report-row"><span class="report-lbl">Contact Number:</span><span class="report-val" id="print-f-phone">N/A</span></div>
+        <div class="report-row"><span class="report-lbl">Aadhaar Number:</span><span class="report-val" id="print-f-aadhar">N/A</span></div>
+        <div class="report-row"><span class="report-lbl">Bank Account:</span><span class="report-val" id="print-f-bank">N/A</span></div>
+        <div class="report-row"><span class="report-lbl">Village/Ward:</span><span class="report-val" id="print-f-village">N/A</span></div>
+        <div class="report-row"><span class="report-lbl">Status:</span><span class="report-val" id="print-f-status">N/A</span></div>
+      </div>
+
+      <!-- Section 2: Financial & Housing Assets -->
+      <div class="report-section">
+        <h3 class="report-section-title">Finance & Housing</h3>
+        <div class="report-row"><span class="report-lbl">Annual Income:</span><span class="report-val" id="print-f-income">N/A</span></div>
+        <div class="report-row"><span class="report-lbl">Poverty Classification:</span><span class="report-val" id="print-f-poverty">N/A</span></div>
+        <div class="report-row"><span class="report-lbl">Primary Income Source:</span><span class="report-val" id="print-f-income-source">N/A</span></div>
+        <div class="report-row"><span class="report-lbl">MNREGA Job Card:</span><span class="report-val" id="print-f-mnrega">N/A</span></div>
+        <div class="report-row"><span class="report-lbl">House Ownership:</span><span class="report-val" id="print-f-ownership">N/A</span></div>
+        <div class="report-row"><span class="report-lbl">House Construction Type:</span><span class="report-val" id="print-f-house-type">N/A</span></div>
+      </div>
+
+      <!-- Section 3: Utilities & Amenities -->
+      <div class="report-section">
+        <h3 class="report-section-title">Utilities & Amenities</h3>
+        <div class="report-row"><span class="report-lbl">Electricity Access:</span><span class="report-val" id="print-f-electricity">N/A</span></div>
+        <div class="report-row"><span class="report-lbl">Toilet Availability:</span><span class="report-val" id="print-f-toilet">N/A</span></div>
+        <div class="report-row"><span class="report-lbl">Drinking Water Source:</span><span class="report-val" id="print-f-water">N/A</span></div>
+        <div class="report-row"><span class="report-lbl">Cooking Fuel Types:</span><span class="report-val" id="print-f-fuel">N/A</span></div>
+        <div class="report-row"><span class="report-lbl">Water Storage Systems:</span><span class="report-val" id="print-f-water-storage">N/A</span></div>
+        <div class="report-row"><span class="report-lbl">Service Providers:</span><span class="report-val" id="print-f-providers">N/A</span></div>
+      </div>
+
+      <!-- Section 4: Agricultural Assets & Livestock -->
+      <div class="report-section">
+        <h3 class="report-section-title">Agriculture & Livestock</h3>
+        <div class="report-row"><span class="report-lbl">Agricultural Land Owned:</span><span class="report-val" id="print-f-land">N/A</span></div>
+        <div class="report-row"><span class="report-lbl">Crops Grown:</span><span class="report-val" id="print-f-crops">N/A</span></div>
+        <div class="report-row"><span class="report-lbl">Irrigation Source:</span><span class="report-val" id="print-f-irrigation">N/A</span></div>
+        <div class="report-row"><span class="report-lbl">Chemicals/Fertilizers Used:</span><span class="report-val" id="print-f-chemicals">N/A</span></div>
+        <div class="report-row"><span class="report-lbl">Livestock Checklist:</span><span class="report-val" id="print-f-livestock">None</span></div>
+        <div class="report-row"><span class="report-lbl">Govt Schemes Benefits:</span><span class="report-val" id="print-f-schemes">None</span></div>
+      </div>
+
+      <!-- Section 5: Electronic Devices & Vehicles -->
+      <div class="report-section full-width">
+        <h3 class="report-section-title">Devices & Vehicles</h3>
+        <div class="report-row"><span class="report-lbl">Electronic Appliances Owned:</span><span class="report-val" id="print-f-electronics">None</span></div>
+        <div class="report-row"><span class="report-lbl">Vehicles Detail List:</span><span class="report-val" id="print-f-vehicles">None</span></div>
+      </div>
+
+      <!-- Section 6: GPS Coordinates & Location Address -->
+      <div class="report-section full-width" style="display: flex; gap: 20px; align-items: center;">
+        <div style="flex: 1;">
+          <h3 class="report-section-title">GPS Coordinates & Location</h3>
+          <div class="report-row"><span class="report-lbl">Latitude:</span><span class="report-val" id="print-f-latitude">N/A</span></div>
+          <div class="report-row"><span class="report-lbl">Longitude:</span><span class="report-val" id="print-f-longitude">N/A</span></div>
+          <div class="report-row"><span class="report-lbl">Detected Address:</span><span class="report-val" id="print-f-address" style="text-align: left; max-width: 400px; white-space: normal;">N/A</span></div>
+          <div class="report-row"><span class="report-lbl">Migration Info:</span><span class="report-val" id="print-f-migration">No</span></div>
+          <div class="report-row"><span class="report-lbl">Chronic Health Issues:</span><span class="report-val" id="print-f-health">None</span></div>
+        </div>
+        <div class="print-qr-section" style="flex-shrink: 0; text-align: center; border-left: 1px solid #ddd; padding-left: 20px;">
+          <img id="print-f-qr-img" src="" alt="QR Code" style="width: 110px; height: 110px; display: block; margin: 0 auto;">
+          <p class="print-qr-instructions" style="font-size: 0.65rem; color: #555; margin-top: 6px;">Scan QR to verify details online</p>
+        </div>
+      </div>
+
+      <!-- Section 7: Family Members List -->
+      <div class="report-section full-width">
+        <h3 class="report-section-title">Family Members Details</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Age</th>
+              <th>Gender</th>
+              <th>Relationship</th>
+              <th>Education</th>
+              <th>Occupation</th>
+              <th>Aadhaar</th>
+              <th>Bank A/C</th>
+              <th>Income</th>
+              <th>MNREGA Card</th>
+              <th>Health issues</th>
+            </tr>
+          </thead>
+          <tbody id="print-f-members-tbody">
+            <tr><td colspan="11" style="text-align: center;">No members listed</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Signatures and Verification Footer -->
+    <div class="report-footer">
+      <div>
+        <p>Report Generated on: <span id="print-f-gen-date">--/--/----</span></p>
+        <p>Gram Panchayat Digitization Drive</p>
+      </div>
+      <div style="display: flex; gap: 30px;">
+        <div class="signature-block">
+          <div class="signature-line"></div>
+          <div class="signature-title">Surveyor Signature</div>
+        </div>
+        <div class="signature-block">
+          <div class="signature-line"></div>
+          <div class="signature-title">Sarpanch / Secretary</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ═══════════════ APP SHELL ═══════════════ -->
   <div class="app-shell">
 
@@ -804,6 +938,7 @@
               </div>
               <div class="modal-actions">
                 <button class="btn btn-secondary" id="success-print-btn"><i data-lucide="printer"></i> Print Card</button>
+                <button class="btn btn-secondary" id="success-print-full-btn" style="background-color: var(--green-pale); border-color: var(--green-light); color: var(--green-deep);"><i data-lucide="file-text"></i> Print Full Survey</button>
                 <button class="btn btn-secondary" id="success-download-btn"><i data-lucide="download"></i> Download QR</button>
                 <button class="btn btn-primary" id="success-close-btn"><i data-lucide="plus"></i> Register Another</button>
               </div>
@@ -1177,6 +1312,7 @@
           <!-- Action buttons for detail card -->
           <div class="detail-card-actions">
             <button class="btn btn-secondary btn-small" id="detail-print-btn"><i data-lucide="printer"></i> Print Card</button>
+            <button class="btn btn-secondary btn-small" id="detail-print-full-btn" style="background-color: var(--green-pale); border-color: var(--green-light); color: var(--green-deep);"><i data-lucide="file-text"></i> Print Full Survey</button>
             <button class="btn btn-secondary btn-small" id="detail-download-btn"><i data-lucide="download"></i> QR Code</button>
             <button class="btn btn-secondary btn-small edit-btn" id="detail-edit-btn" style="background-color: var(--green-pale); border-color: var(--green-light); color: var(--green-deep);"><i data-lucide="edit"></i> Edit</button>
             <button class="btn btn-secondary btn-small delete-btn" id="detail-delete-btn" style="background-color: var(--danger-light); border-color: var(--danger); color: var(--danger);"><i data-lucide="trash-2"></i> Delete</button>

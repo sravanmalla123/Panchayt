@@ -709,9 +709,132 @@ function populatePrintReceipt(record, qrCodeDataUrl) {
   document.getElementById('print-h-date').textContent = `Date: ${createdDate.toLocaleDateString()}`;
 }
 
+function printReceiptCard(record, qrCode) {
+  populatePrintReceipt(record, qrCode);
+  const el = document.getElementById('print-receipt');
+  el.classList.add('print-active');
+  
+  const cleanup = () => {
+    el.classList.remove('print-active');
+    window.removeEventListener('afterprint', cleanup);
+  };
+  window.addEventListener('afterprint', cleanup);
+  window.print();
+  setTimeout(cleanup, 1500);
+}
+
+function printFullHouseholdSurvey(record, qrCode) {
+  populatePrintFullDetails(record, qrCode);
+  const el = document.getElementById('print-full-details');
+  el.classList.add('print-active');
+  
+  const cleanup = () => {
+    el.classList.remove('print-active');
+    window.removeEventListener('afterprint', cleanup);
+  };
+  window.addEventListener('afterprint', cleanup);
+  window.print();
+  setTimeout(cleanup, 1500);
+}
+
+function populatePrintFullDetails(record, qrCodeDataUrl) {
+  document.getElementById('print-f-id').textContent = record.id;
+  document.getElementById('print-f-headName').textContent = record.headName;
+  document.getElementById('print-f-category').textContent = record.category || 'General';
+  document.getElementById('print-f-phone').textContent = record.contactNo || 'N/A';
+  document.getElementById('print-f-aadhar').textContent = maskAadhaar(record.aadharNumber);
+  document.getElementById('print-f-bank').textContent = record.bankAccount || 'No';
+  document.getElementById('print-f-village').textContent = record.village || 'Ward 1';
+  document.getElementById('print-f-status').textContent = record.status || 'Active';
+  
+  const income = record.annualIncome ? `₹${parseFloat(record.annualIncome).toLocaleString('en-IN')}` : '₹0';
+  document.getElementById('print-f-income').textContent = income;
+  document.getElementById('print-f-poverty').textContent = record.povertyStatus || 'APL';
+  document.getElementById('print-f-income-source').textContent = record.mainIncomeSource || 'N/A';
+  document.getElementById('print-f-mnrega').textContent = record.mnregaJobCard || 'No';
+  document.getElementById('print-f-ownership').textContent = record.houseOwnership || 'Own House';
+  document.getElementById('print-f-house-type').textContent = record.houseType || 'Pucca (Concrete/Brick)';
+  
+  document.getElementById('print-f-electricity').textContent = record.electricityAccess === 'Yes' ? `Yes (${record.electricityHours || 0} Hrs/Day)` : 'No';
+  document.getElementById('print-f-toilet').textContent = record.toiletAvailable || 'No';
+  document.getElementById('print-f-water').textContent = record.drinkingWaterSource || 'Panchayat Tap Water';
+  
+  document.getElementById('print-f-fuel').textContent = record.cookingFuel && record.cookingFuel.length ? record.cookingFuel.join(', ') : 'None';
+  document.getElementById('print-f-water-storage').textContent = record.waterStorage && record.waterStorage.length ? record.waterStorage.join(', ') : 'None';
+  document.getElementById('print-f-providers').textContent = record.serviceProviders && record.serviceProviders.length ? record.serviceProviders.join(', ') : 'None';
+  
+  document.getElementById('print-f-land').textContent = record.landOwned === 'Yes' ? `Yes (${record.landAcres || 0} Acres)` : 'No';
+  document.getElementById('print-f-crops').textContent = record.agricultureCrops || 'None';
+  document.getElementById('print-f-irrigation').textContent = record.irrigation || 'None';
+  document.getElementById('print-f-chemicals').textContent = record.agricultureChemicals || 'None';
+  
+  // Livestock
+  const livestockEl = document.getElementById('print-f-livestock');
+  if (record.livestock && Object.keys(record.livestock).length > 0) {
+    const list = Object.entries(record.livestock)
+      .filter(([_, count]) => count > 0)
+      .map(([name, count]) => `${name}: ${count}`)
+      .join(', ');
+    livestockEl.textContent = list || 'None';
+  } else {
+    livestockEl.textContent = 'None';
+  }
+  
+  document.getElementById('print-f-schemes').textContent = record.govtBeneficiary && record.govtBeneficiary.length ? record.govtBeneficiary.join(', ') : 'None';
+  document.getElementById('print-f-electronics').textContent = record.electronics && record.electronics.length ? record.electronics.join(', ') : 'None';
+  
+  // Vehicles
+  const vehiclesEl = document.getElementById('print-f-vehicles');
+  if (record.vehicles && record.vehicles.length) {
+    vehiclesEl.innerHTML = record.vehicles.map(v => `
+      <span class="vehicle-badge">
+        <strong>${v.vehicleNo}</strong> (${v.wheels}-Wheeler, ${v.fuelType})
+      </span>
+    `).join(' ');
+  } else {
+    vehiclesEl.textContent = 'None';
+  }
+  
+  document.getElementById('print-f-latitude').textContent = record.latitude || 'N/A';
+  document.getElementById('print-f-longitude').textContent = record.longitude || 'N/A';
+  document.getElementById('print-f-address').textContent = record.gpsAddress || 'N/A';
+  
+  document.getElementById('print-f-migration').textContent = record.migrationStatus === 'Yes' ? `Yes (${record.migrationDetails || 'Unspecified'})` : 'No';
+  document.getElementById('print-f-health').textContent = record.healthIssues || 'None';
+  
+  document.getElementById('print-f-qr-img').src = qrCodeDataUrl || '';
+  document.getElementById('print-f-gen-date').textContent = new Date().toLocaleDateString();
+  
+  const createdDate = record.createdAt ? new Date(record.createdAt) : new Date();
+  document.getElementById('print-f-date').textContent = `Date: ${createdDate.toLocaleDateString()}`;
+  
+  // Family Members Table
+  const tbody = document.getElementById('print-f-members-tbody');
+  if (record.members && record.members.length) {
+    tbody.innerHTML = record.members.map(m => `
+      <tr>
+        <td><strong>${m.fullName}</strong></td>
+        <td>${m.age}</td>
+        <td>${m.gender}</td>
+        <td>${m.relationship}</td>
+        <td>${m.education}</td>
+        <td>${m.occupation}</td>
+        <td style="font-family: monospace;">${maskAadhaar(m.aadharNumber)}</td>
+        <td>${m.bankAccount || 'No'}</td>
+        <td>${m.income ? '₹' + parseFloat(m.income).toLocaleString('en-IN') : '₹0'}</td>
+        <td>${m.mnregaJobCard || 'No'}</td>
+        <td>${m.healthIssues || 'None'}</td>
+      </tr>
+    `).join('');
+  } else {
+    tbody.innerHTML = `<tr><td colspan="11" style="text-align: center;">No members listed</td></tr>`;
+  }
+}
+
 function initSuccessModalHandlers() {
   const closeBtn = document.getElementById('success-close-btn');
   const printBtn = document.getElementById('success-print-btn');
+  const printFullBtn = document.getElementById('success-print-full-btn');
   const downloadBtn = document.getElementById('success-download-btn');
   const overlay = document.getElementById('success-overlay');
 
@@ -722,8 +845,18 @@ function initSuccessModalHandlers() {
   });
 
   printBtn.addEventListener('click', () => {
-    window.print();
+    if (currentRegisteredData) {
+      printReceiptCard(currentRegisteredData.record, currentRegisteredData.qrCode);
+    }
   });
+
+  if (printFullBtn) {
+    printFullBtn.addEventListener('click', () => {
+      if (currentRegisteredData) {
+        printFullHouseholdSurvey(currentRegisteredData.record, currentRegisteredData.qrCode);
+      }
+    });
+  }
 
   downloadBtn.addEventListener('click', () => {
     if (!currentRegisteredData || !currentRegisteredData.qrCode) return;
@@ -938,6 +1071,7 @@ function populateDetailsCard(data) {
 
   // Setup details print and download bindings
   const printBtn = document.getElementById('detail-print-btn');
+  const printFullBtn = document.getElementById('detail-print-full-btn');
   const downloadBtn = document.getElementById('detail-download-btn');
   const detailEditBtn = document.getElementById('detail-edit-btn');
   const detailDeleteBtn = document.getElementById('detail-delete-btn');
@@ -948,8 +1082,16 @@ function populateDetailsCard(data) {
   downloadBtn.parentNode.replaceChild(newDownloadBtn, downloadBtn);
 
   newPrintBtn.addEventListener('click', () => {
-    window.print();
+    printReceiptCard(data, data.qrCode);
   });
+
+  if (printFullBtn) {
+    const newPrintFullBtn = printFullBtn.cloneNode(true);
+    printFullBtn.parentNode.replaceChild(newPrintFullBtn, printFullBtn);
+    newPrintFullBtn.addEventListener('click', () => {
+      printFullHouseholdSurvey(data, data.qrCode);
+    });
+  }
 
   newDownloadBtn.addEventListener('click', () => {
     if (!data.qrCode) return;
@@ -1290,6 +1432,9 @@ function renderFilteredDirectory() {
             <button class="action-icon-btn" title="Print card" onclick="event.stopPropagation(); printHouseholdFromTable('${item.id}')">
               <i data-lucide="printer" style="width:16px; height:16px;"></i>
             </button>
+            <button class="action-icon-btn" title="Print Full Survey" onclick="event.stopPropagation(); printFullHouseholdFromTable('${item.id}')" style="color: var(--green-mid); border-color: var(--green-light);">
+              <i data-lucide="file-text" style="width:16px; height:16px;"></i>
+            </button>
             <button class="action-icon-btn edit-btn" title="Edit details" onclick="event.stopPropagation(); editHouseholdFromTable('${item.id}')">
               <i data-lucide="edit" style="width:16px; height:16px;"></i>
             </button>
@@ -1448,11 +1593,23 @@ window.printHouseholdFromTable = async function(id) {
     if (!response.ok) throw new Error('Record fetch failed');
     const data = await response.json();
     
-    populatePrintReceipt(data, data.qrCode);
-    window.print();
+    printReceiptCard(data, data.qrCode);
   } catch (err) {
     console.error('Failed to print from table:', err);
     alert('Error printing card. Could not fetch data.');
+  }
+};
+
+window.printFullHouseholdFromTable = async function(id) {
+  try {
+    const response = await fetch(`${API_URL}/households/${id}`);
+    if (!response.ok) throw new Error('Record fetch failed');
+    const data = await response.json();
+    
+    printFullHouseholdSurvey(data, data.qrCode);
+  } catch (err) {
+    console.error('Failed to print full survey from table:', err);
+    alert('Error printing full survey. Could not fetch data.');
   }
 };
 async function fetchStats() {
