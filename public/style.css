@@ -1161,9 +1161,7 @@ body.dark-mode .ticker-bar { background: #451a03; border-bottom-color: rgba(217,
   #print-receipt .print-row { display: flex; gap: 8px; padding: 6px 0; border-bottom: 1px solid #e0e0e0; font-size: 0.88rem; }
   #print-receipt .print-label { font-weight: 700; color: #1a4731; min-width: 160px; }
   #print-receipt .print-highlight { color: #d4a017; font-size: 1.1rem; }
-  #print-receipt .print-qr-section { text-align: center; }
-  #print-receipt .print-qr-section img { width: 140px; height: 140px; }
-  #print-receipt .print-qr-instructions { font-size: 0.72rem; color: #7a8f7a; margin-top: 8px; }
+  #print-receipt .print-qr-section { display: none !important; }
   #print-receipt .print-footer { text-align: center; padding: 14px; border-top: 1px solid #e0e0e0; font-size: 0.78rem; color: #7a8f7a; }
 }
 

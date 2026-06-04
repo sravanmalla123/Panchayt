@@ -710,7 +710,24 @@ function populatePrintReceipt(record, qrCodeDataUrl) {
 }
 
 function printReceiptCard(record, qrCode) {
-  printFullHouseholdSurvey(record, qrCode);
+  populatePrintReceipt(record, qrCode);
+  const el = document.getElementById('print-receipt');
+  if (!el) {
+    console.error('Error: print template element #print-receipt not found');
+    return;
+  }
+  el.classList.add('print-active');
+
+  const cleanup = () => {
+    el.classList.remove('print-active');
+    window.removeEventListener('afterprint', cleanup);
+  };
+  window.addEventListener('afterprint', cleanup);
+  
+  setTimeout(() => {
+    window.print();
+    setTimeout(cleanup, 1500);
+  }, 600);
 }
 
 function printFullHouseholdSurvey(record, qrCode) {
