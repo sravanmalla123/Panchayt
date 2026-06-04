@@ -684,7 +684,7 @@ app.get('/api/households/:id', async (req, res) => {
   // Generate QR code dynamically based on current host
   const host = req.headers.host;
   const protocol = req.headers['x-forwarded-proto'] || 'http';
-  const qrUrl = `${protocol}://${host}/?id=${record.id}`;
+  const qrUrl = `${protocol}://${host}/household/${record.id}`;
 
   try {
     const qrCodeDataUrl = await QRCode.toDataURL(qrUrl, {
@@ -829,7 +829,7 @@ app.post('/api/households', async (req, res) => {
   if (await saveHousehold(newRecord)) {
     const host = req.headers.host;
     const protocol = req.headers['x-forwarded-proto'] || 'http';
-    const qrUrl = `${protocol}://${host}/?id=${newId}`;
+    const qrUrl = `${protocol}://${host}/household/${newId}`;
     
     try {
       const qrCodeDataUrl = await QRCode.toDataURL(qrUrl, {
@@ -922,7 +922,7 @@ app.put('/api/households/:id', async (req, res) => {
   if (await updateHousehold(id, updatedRecord)) {
     const host = req.headers.host;
     const protocol = req.headers['x-forwarded-proto'] || 'http';
-    const qrUrl = `${protocol}://${host}/?id=${id}`;
+    const qrUrl = `${protocol}://${host}/household/${id}`;
     
     try {
       const qrCodeDataUrl = await QRCode.toDataURL(qrUrl, {

@@ -1165,15 +1165,16 @@ body.dark-mode .ticker-bar { background: #451a03; border-bottom-color: rgba(217,
   #print-receipt .print-qr-section img { width: 140px; height: 140px; }
   #print-receipt .print-qr-instructions { font-size: 0.72rem; color: #7a8f7a; margin-top: 8px; }
   #print-receipt .print-footer { text-align: center; padding: 14px; border-top: 1px solid #e0e0e0; font-size: 0.78rem; color: #7a8f7a; }
-  
-  /* Print Full Report (A4 Details) Styling */
-  #print-full-details.print-active {
-    display: block !important;
-    font-family: 'Plus Jakarta Sans', 'Outfit', Arial, sans-serif;
-    color: #1f2937;
-    background: #fff;
-    padding: 10px;
-  }
+}
+
+/* Print Full Report (A4 Details) Styling - Defined outside of @media print for html2pdf compatibility */
+#print-full-details.print-active, #print-full-details {
+  display: block !important;
+  font-family: 'Plus Jakarta Sans', 'Outfit', Arial, sans-serif;
+  color: #1f2937;
+  background: #fff;
+  padding: 10px;
+}
   #print-full-details .report-header {
     display: flex;
     justify-content: space-between;
@@ -1331,8 +1332,11 @@ body.dark-mode .ticker-bar { background: #451a03; border-bottom-color: rgba(217,
     height: 250px;
   }
   
-  hr { border: none; border-top: 1px solid #e0e0e0; }
-}
+  #print-full-details hr { border: none; border-top: 1px solid #e0e0e0; }
+  #print-full-details .report-section {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
 
 
 /* ── SIDEBAR OVERLAY (mobile) ───────────────────────────────── */

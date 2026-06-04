@@ -762,98 +762,232 @@ function printFullHouseholdSurvey(record, qrCode) {
   }, 600);
 }
 
+function downloadFullHouseholdSurveyPDF(record, qrCode) {
+  // 1. Populate the print details template
+  populatePrintFullDetails(record, qrCode);
+  
+  const el = document.getElementById('print-full-details');
+  if (!el) {
+    console.error('Error: print template element #print-full-details not found');
+    return;
+  }
+  
+  // 2. Temporarily show the print container offscreen so html2pdf can render it
+  const originalStyle = el.getAttribute('style') || '';
+  el.classList.remove('print-only');
+  el.style.display = 'block';
+  el.style.position = 'fixed';
+  el.style.left = '-9999px';
+  el.style.top = '0';
+  el.style.width = '800px'; // standard A4 print width in pixels
+  el.style.zIndex = '-9999';
+  el.style.background = '#fff';
+  el.style.color = '#000';
+  
+  // 3. Initialize GPS Map inside the print container for the screenshot
+  let printMapInstance = null;
+  const mapSection = document.getElementById('print-f-map-section');
+  
+  // Disable 3D transforms for html2canvas compatibility
+  const oldAny3d = L.Browser.any3d;
+  L.Browser.any3d = false;
+  
+  if (record.latitude && record.longitude) {
+    if (mapSection) mapSection.classList.remove('hidden');
+    try {
+      printMapInstance = L.map('print-f-map', {
+        zoomControl: false,
+        attributionControl: false,
+        fadeAnimation: false,
+        zoomAnimation: false
+      }).setView([record.latitude, record.longitude], 16);
+      
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        crossOrigin: true
+      }).addTo(printMapInstance);
+      
+      L.marker([record.latitude, record.longitude]).addTo(printMapInstance);
+      printMapInstance.invalidateSize();
+    } catch (mapErr) {
+      console.error('Error creating printing map for PDF:', mapErr);
+    }
+  } else {
+    if (mapSection) mapSection.classList.add('hidden');
+  }
+  
+  // 4. Delay html2pdf call slightly to let Leaflet map tiles load completely (e.g. 1000ms)
+  setTimeout(() => {
+    const opt = {
+      margin:       [12, 12, 12, 12], // A4 margin in mm
+      filename:     `Household_${record.id}.pdf`,
+      image:        { type: 'jpeg', quality: 0.98 },
+      html2canvas:  { 
+        scale: 2, 
+        useCORS: true, 
+        logging: false,
+        letterRendering: true,
+        allowTaint: false
+      },
+      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
+    };
+    
+    // Generate PDF and trigger download
+    html2pdf().from(el).set(opt).save().then(() => {
+      cleanup();
+    }).catch(pdfErr => {
+      console.error('Error generating PDF:', pdfErr);
+      cleanup();
+    });
+  }, 1000);
+  
+  function cleanup() {
+    // Restore original Leaflet browser state
+    L.Browser.any3d = oldAny3d;
+    
+    // Restore classes and styles
+    el.classList.add('print-only');
+    if (originalStyle) {
+      el.setAttribute('style', originalStyle);
+    } else {
+      el.removeAttribute('style');
+    }
+    
+    // Destroy leaflet instance
+    if (printMapInstance) {
+      try {
+        printMapInstance.remove();
+      } catch (err) {
+        console.error('Error removing map instance:', err);
+      }
+    }
+  }
+}
+
 function populatePrintFullDetails(record, qrCodeDataUrl) {
-  document.getElementById('print-f-id').textContent = record.id;
-  document.getElementById('print-f-headName').textContent = record.headName;
-  document.getElementById('print-f-category').textContent = record.category || 'General';
-  document.getElementById('print-f-phone').textContent = record.contactNo || 'N/A';
-  document.getElementById('print-f-aadhar').textContent = maskAadhaar(record.aadharNumber);
-  document.getElementById('print-f-bank').textContent = record.bankAccount || 'No';
-  document.getElementById('print-f-village').textContent = record.village || 'Ward 1';
-  document.getElementById('print-f-address-basic').textContent = record.gpsAddress || 'N/A';
-  document.getElementById('print-f-status').textContent = record.status || 'Active';
-  
+  const safeSetText = (id, val) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val;
+  };
+  const safeSetSrc = (id, src) => {
+    const el = document.getElementById(id);
+    if (el) el.src = src;
+  };
+
+  safeSetText('print-f-id', record.id);
+  safeSetText('print-f-headName', record.headName);
+  safeSetText('print-f-category', record.category || 'General');
+  safeSetText('print-f-phone', record.contactNo || 'N/A');
+  safeSetText('print-f-aadhar', maskAadhaar(record.aadharNumber));
+  safeSetText('print-f-bank', record.bankAccount || 'No');
+  safeSetText('print-f-village', record.village || 'Ward 1');
+  safeSetText('print-f-village-header', record.village || 'Ward 1');
+  safeSetText('print-f-address-basic', record.gpsAddress || 'N/A');
+  safeSetText('print-f-status', record.status || 'Active');
+  safeSetText('print-f-members-count', record.familyMembers || '0');
+
   const income = record.annualIncome ? `₹${parseFloat(record.annualIncome).toLocaleString('en-IN')}` : '₹0';
-  document.getElementById('print-f-income').textContent = income;
-  document.getElementById('print-f-poverty').textContent = record.povertyStatus || 'APL';
-  document.getElementById('print-f-income-source').textContent = record.mainIncomeSource || 'N/A';
-  document.getElementById('print-f-mnrega').textContent = record.mnregaJobCard || 'No';
-  document.getElementById('print-f-ownership').textContent = record.houseOwnership || 'Own House';
-  document.getElementById('print-f-house-type').textContent = record.houseType || 'Pucca (Concrete/Brick)';
-  
-  document.getElementById('print-f-electricity').textContent = record.electricityAccess === 'Yes' ? `Yes (${record.electricityHours || 0} Hrs/Day)` : 'No';
-  document.getElementById('print-f-toilet').textContent = record.toiletAvailable || 'No';
-  document.getElementById('print-f-water').textContent = record.drinkingWaterSource || 'Panchayat Tap Water';
-  
-  document.getElementById('print-f-fuel').textContent = record.cookingFuel && record.cookingFuel.length ? record.cookingFuel.join(', ') : 'None';
-  document.getElementById('print-f-water-storage').textContent = record.waterStorage && record.waterStorage.length ? record.waterStorage.join(', ') : 'None';
-  document.getElementById('print-f-providers').textContent = record.serviceProviders && record.serviceProviders.length ? record.serviceProviders.join(', ') : 'None';
-  
-  document.getElementById('print-f-land').textContent = record.landOwned === 'Yes' ? `Yes (${record.landAcres || 0} Acres)` : 'No';
-  document.getElementById('print-f-crops').textContent = record.agricultureCrops || 'None';
-  document.getElementById('print-f-irrigation').textContent = record.irrigation || 'None';
-  document.getElementById('print-f-chemicals').textContent = record.agricultureChemicals || 'None';
-  
+  safeSetText('print-f-income', income);
+  safeSetText('print-f-poverty', record.povertyStatus || 'APL');
+  safeSetText('print-f-income-source', record.mainIncomeSource || 'N/A');
+  safeSetText('print-f-mnrega', record.mnregaJobCard || 'No');
+  safeSetText('print-f-ownership', record.houseOwnership || 'Own House');
+  safeSetText('print-f-house-type', record.houseType || 'Pucca (Concrete/Brick)');
+
+  safeSetText('print-f-electricity', record.electricityAccess === 'Yes' ? `Yes (${record.electricityHours || 0} Hrs/Day)` : 'No');
+  safeSetText('print-f-toilet', record.toiletAvailable || 'No');
+  safeSetText('print-f-water', record.drinkingWaterSource || 'Panchayat Tap Water');
+
+  safeSetText('print-f-fuel', record.cookingFuel && record.cookingFuel.length ? record.cookingFuel.join(', ') : 'None');
+  safeSetText('print-f-water-storage', record.waterStorage && record.waterStorage.length ? record.waterStorage.join(', ') : 'None');
+  safeSetText('print-f-providers', record.serviceProviders && record.serviceProviders.length ? record.serviceProviders.join(', ') : 'None');
+
+  safeSetText('print-f-land', record.landOwned === 'Yes' ? `Yes (${record.landAcres || 0} Acres)` : 'No');
+  safeSetText('print-f-crops', record.agricultureCrops || 'None');
+  safeSetText('print-f-irrigation', record.irrigation || 'None');
+  safeSetText('print-f-chemicals', record.agricultureChemicals || 'None');
+
   // Livestock
   const livestockEl = document.getElementById('print-f-livestock');
-  if (record.livestock && Object.keys(record.livestock).length > 0) {
-    const list = Object.entries(record.livestock)
-      .filter(([_, count]) => count > 0)
-      .map(([name, count]) => `${name}: ${count}`)
-      .join(', ');
-    livestockEl.textContent = list || 'None';
-  } else {
-    livestockEl.textContent = 'None';
+  if (livestockEl) {
+    if (record.livestock && Object.keys(record.livestock).length > 0) {
+      const list = Object.entries(record.livestock)
+        .filter(([_, count]) => count > 0)
+        .map(([name, count]) => `${name}: ${count}`)
+        .join(', ');
+      livestockEl.textContent = list || 'None';
+    } else {
+      livestockEl.textContent = 'None';
+    }
   }
-  
-  document.getElementById('print-f-schemes').textContent = record.govtBeneficiary && record.govtBeneficiary.length ? record.govtBeneficiary.join(', ') : 'None';
-  document.getElementById('print-f-electronics').textContent = record.electronics && record.electronics.length ? record.electronics.join(', ') : 'None';
-  
+
+  safeSetText('print-f-schemes', record.govtBeneficiary && record.govtBeneficiary.length ? record.govtBeneficiary.join(', ') : 'None');
+  safeSetText('print-f-electronics', record.electronics && record.electronics.length ? record.electronics.join(', ') : 'None');
+
   // Vehicles
   const vehiclesEl = document.getElementById('print-f-vehicles');
-  if (record.vehicles && record.vehicles.length) {
-    vehiclesEl.innerHTML = record.vehicles.map(v => `
-      <span class="vehicle-badge">
-        <strong>${v.vehicleNo}</strong> (${v.wheels}-Wheeler, ${v.fuelType})
-      </span>
-    `).join(' ');
-  } else {
-    vehiclesEl.textContent = 'None';
+  if (vehiclesEl) {
+    if (record.vehicles && record.vehicles.length) {
+      vehiclesEl.innerHTML = record.vehicles.map(v => `
+        <span class="vehicle-badge">
+          <strong>${v.vehicleNo}</strong> (${v.wheels}-Wheeler, ${v.fuelType})
+        </span>
+      `).join(' ');
+    } else {
+      vehiclesEl.textContent = 'None';
+    }
   }
-  
-  document.getElementById('print-f-latitude').textContent = record.latitude || 'N/A';
-  document.getElementById('print-f-longitude').textContent = record.longitude || 'N/A';
-  document.getElementById('print-f-address').textContent = record.gpsAddress || 'N/A';
-  
-  document.getElementById('print-f-migration').textContent = record.migrationStatus === 'Yes' ? `Yes (${record.migrationDetails || 'Unspecified'})` : 'No';
-  document.getElementById('print-f-health').textContent = record.healthIssues || 'None';
-  
-  document.getElementById('print-f-qr-img').src = qrCodeDataUrl || '';
-  document.getElementById('print-f-gen-date').textContent = new Date().toLocaleDateString();
-  
+
+  safeSetText('print-f-latitude', record.latitude || 'N/A');
+  safeSetText('print-f-longitude', record.longitude || 'N/A');
+  safeSetText('print-f-address', record.gpsAddress || 'N/A');
+
+  const mapsLinkEl = document.getElementById('print-f-maps-link');
+  if (mapsLinkEl) {
+    if (record.latitude && record.longitude) {
+      mapsLinkEl.href = `https://www.google.com/maps/search/?api=1&query=${record.latitude},${record.longitude}`;
+      mapsLinkEl.textContent = `Open Google Maps (${record.latitude}, ${record.longitude})`;
+      mapsLinkEl.style.display = 'inline-block';
+    } else {
+      mapsLinkEl.style.display = 'none';
+    }
+  }
+
+  safeSetText('print-f-migration', record.migrationStatus === 'Yes' ? `Yes (${record.migrationDetails || 'Unspecified'})` : 'No');
+  safeSetText('print-f-health', record.healthIssues || 'None');
+
+  safeSetSrc('print-f-qr-img', qrCodeDataUrl || '');
+  safeSetText('print-f-gen-date', new Date().toLocaleDateString());
+
   const createdDate = record.createdAt ? new Date(record.createdAt) : new Date();
-  document.getElementById('print-f-date').textContent = `Date: ${createdDate.toLocaleDateString()}`;
-  
+  safeSetText('print-f-date', `Date: ${createdDate.toLocaleDateString()}`);
+  safeSetText('print-f-reg-date-footer', createdDate.toLocaleDateString());
+
+  const verificationCode = `${record.id}-${new Date(record.createdAt || Date.now()).getTime().toString(36).toUpperCase()}`;
+  safeSetText('print-f-verification-code', verificationCode);
+
   // Family Members Table
   const tbody = document.getElementById('print-f-members-tbody');
-  if (record.members && record.members.length) {
-    tbody.innerHTML = record.members.map(m => `
-      <tr>
-        <td><strong>${m.fullName}</strong></td>
-        <td>${m.age}</td>
-        <td>${m.gender}</td>
-        <td>${m.relationship}</td>
-        <td>${m.education}</td>
-        <td>${m.occupation}</td>
-        <td style="font-family: monospace;">${maskAadhaar(m.aadharNumber)}</td>
-        <td>${m.bankAccount || 'No'}</td>
-        <td>${m.income ? '₹' + parseFloat(m.income).toLocaleString('en-IN') : '₹0'}</td>
-        <td>${m.mnregaJobCard || 'No'}</td>
-        <td>${m.healthIssues || 'None'}</td>
-      </tr>
-    `).join('');
-  } else {
-    tbody.innerHTML = `<tr><td colspan="11" style="text-align: center;">No members listed</td></tr>`;
+  if (tbody) {
+    if (record.members && record.members.length) {
+      tbody.innerHTML = record.members.map(m => `
+        <tr>
+          <td><strong>${m.fullName}</strong></td>
+          <td>${m.age}</td>
+          <td>${m.gender}</td>
+          <td>${m.relationship}</td>
+          <td>${m.education}</td>
+          <td>${m.occupation}</td>
+          <td style="font-family: monospace;">${maskAadhaar(m.aadharNumber)}</td>
+          <td>${m.bankAccount || 'No'}</td>
+          <td>${m.income ? '₹' + parseFloat(m.income).toLocaleString('en-IN') : '₹0'}</td>
+          <td>${m.mnregaJobCard || 'No'}</td>
+          <td>${m.healthIssues || 'None'}</td>
+        </tr>
+      `).join('');
+    } else {
+      tbody.innerHTML = `<tr><td colspan="11" style="text-align: center;">No members listed</td></tr>`;
+    }
   }
 
   // House Photos
@@ -862,7 +996,7 @@ function populatePrintFullDetails(record, qrCodeDataUrl) {
   if (photosContainer) {
     if (record.photos && record.photos.length) {
       photosContainer.innerHTML = record.photos.map(url => `
-        <img src="${url}" class="print-photo" alt="House Photo">
+        <img src="${url}" class="print-photo" alt="House Photo" crossorigin="anonymous">
       `).join('');
       if (photosSection) photosSection.classList.remove('hidden');
     } else {
@@ -877,6 +1011,7 @@ function initSuccessModalHandlers() {
   const printBtn = document.getElementById('success-print-btn');
   const printFullBtn = document.getElementById('success-print-full-btn');
   const downloadBtn = document.getElementById('success-download-btn');
+  const downloadPdfBtn = document.getElementById('success-download-pdf-btn');
   const overlay = document.getElementById('success-overlay');
 
   closeBtn.addEventListener('click', () => {
@@ -895,6 +1030,14 @@ function initSuccessModalHandlers() {
     printFullBtn.addEventListener('click', () => {
       if (currentRegisteredData) {
         printFullHouseholdSurvey(currentRegisteredData.record, currentRegisteredData.qrCode);
+      }
+    });
+  }
+
+  if (downloadPdfBtn) {
+    downloadPdfBtn.addEventListener('click', () => {
+      if (currentRegisteredData) {
+        downloadFullHouseholdSurveyPDF(currentRegisteredData.record, currentRegisteredData.qrCode);
       }
     });
   }
@@ -918,6 +1061,9 @@ function initDetailsModalHandlers() {
   if (closeBtn && overlay) {
     closeBtn.addEventListener('click', () => {
       overlay.classList.add('hidden');
+      if (window.location.pathname !== '/' || window.location.search !== '') {
+        window.history.pushState({}, '', '/');
+      }
     });
   }
 
@@ -926,6 +1072,9 @@ function initDetailsModalHandlers() {
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) {
         overlay.classList.add('hidden');
+        if (window.location.pathname !== '/' || window.location.search !== '') {
+          window.history.pushState({}, '', '/');
+        }
       }
     });
   }
@@ -1114,6 +1263,7 @@ function populateDetailsCard(data) {
   const printBtn = document.getElementById('detail-print-btn');
   const printFullBtn = document.getElementById('detail-print-full-btn');
   const downloadBtn = document.getElementById('detail-download-btn');
+  const downloadPdfBtn = document.getElementById('detail-download-pdf-btn');
   const detailEditBtn = document.getElementById('detail-edit-btn');
   const detailDeleteBtn = document.getElementById('detail-delete-btn');
 
@@ -1131,6 +1281,14 @@ function populateDetailsCard(data) {
     printFullBtn.parentNode.replaceChild(newPrintFullBtn, printFullBtn);
     newPrintFullBtn.addEventListener('click', () => {
       printFullHouseholdSurvey(data, data.qrCode);
+    });
+  }
+
+  if (downloadPdfBtn) {
+    const newDownloadPdfBtn = downloadPdfBtn.cloneNode(true);
+    downloadPdfBtn.parentNode.replaceChild(newDownloadPdfBtn, downloadPdfBtn);
+    newDownloadPdfBtn.addEventListener('click', () => {
+      downloadFullHouseholdSurveyPDF(data, data.qrCode);
     });
   }
 
@@ -1476,6 +1634,9 @@ function renderFilteredDirectory() {
             <button class="action-icon-btn" title="Print Full Survey" onclick="event.stopPropagation(); printFullHouseholdFromTable('${item.id}')" style="color: var(--green-mid); border-color: var(--green-light);">
               <i data-lucide="file-text" style="width:16px; height:16px;"></i>
             </button>
+            <button class="action-icon-btn" title="Download PDF" onclick="event.stopPropagation(); downloadPdfFromTable('${item.id}')" style="color: var(--green-mid); border-color: var(--green-light);">
+              <i data-lucide="file-down" style="width:16px; height:16px;"></i>
+            </button>
             <button class="action-icon-btn edit-btn" title="Edit details" onclick="event.stopPropagation(); editHouseholdFromTable('${item.id}')">
               <i data-lucide="edit" style="width:16px; height:16px;"></i>
             </button>
@@ -1653,6 +1814,19 @@ window.printFullHouseholdFromTable = async function(id) {
     alert('Error printing full survey. Could not fetch data.');
   }
 };
+
+window.downloadPdfFromTable = async function(id) {
+  try {
+    const response = await fetch(`${API_URL}/households/${id}`);
+    if (!response.ok) throw new Error('Record fetch failed');
+    const data = await response.json();
+    
+    downloadFullHouseholdSurveyPDF(data, data.qrCode);
+  } catch (err) {
+    console.error('Failed to download PDF from table:', err);
+    alert('Error downloading PDF. Could not fetch data.');
+  }
+};
 async function fetchStats() {
   try {
     const response = await fetch(`${API_URL}/households`);
@@ -1683,8 +1857,19 @@ async function fetchStats() {
 }
 
 function checkURLParams() {
-  const urlParams = new URLSearchParams(window.location.search);
-  const scannedId = urlParams.get('id');
+  // Check path-based routing (e.g., /household/H003)
+  const pathParts = window.location.pathname.split('/');
+  const householdIdx = pathParts.indexOf('household');
+  let scannedId = null;
+  
+  if (householdIdx !== -1 && pathParts[householdIdx + 1]) {
+    scannedId = pathParts[householdIdx + 1];
+  } else {
+    // Fallback to query parameter (e.g., ?id=H003)
+    const urlParams = new URLSearchParams(window.location.search);
+    scannedId = urlParams.get('id');
+  }
+
   if (scannedId && scannedId.match(/^H\d+$/i)) {
     setTimeout(() => {
       fetchHouseholdDetails(scannedId);
