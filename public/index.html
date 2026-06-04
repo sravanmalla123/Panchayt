@@ -91,6 +91,7 @@
         <div class="report-row"><span class="report-lbl">Aadhaar Number:</span><span class="report-val" id="print-f-aadhar">N/A</span></div>
         <div class="report-row"><span class="report-lbl">Bank Account:</span><span class="report-val" id="print-f-bank">N/A</span></div>
         <div class="report-row"><span class="report-lbl">Village/Ward:</span><span class="report-val" id="print-f-village">N/A</span></div>
+        <div class="report-row"><span class="report-lbl">Detected Address:</span><span class="report-val" id="print-f-address-basic" style="text-align: right; max-width: 220px; font-size: 0.72rem; display: inline-block;">N/A</span></div>
         <div class="report-row"><span class="report-lbl">Status:</span><span class="report-val" id="print-f-status">N/A</span></div>
       </div>
 
@@ -180,6 +181,12 @@
         <div id="print-f-photos-container" style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 10px;">
           <!-- Photos will be dynamically inserted here -->
         </div>
+      </div>
+
+      <!-- Section 9: Household GPS Map -->
+      <div class="report-section full-width" id="print-f-map-section">
+        <h3 class="report-section-title">Household GPS Location Map</h3>
+        <div id="print-f-map" style="height: 250px; border-radius: 8px; border: 1.5px solid #ddd; margin-top: 10px; background: #fafafa;"></div>
       </div>
     </div>
 

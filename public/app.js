@@ -717,14 +717,49 @@ function printFullHouseholdSurvey(record, qrCode) {
   populatePrintFullDetails(record, qrCode);
   const el = document.getElementById('print-full-details');
   el.classList.add('print-active');
+
+  // Initialize GPS Map inside Print layout
+  let printMapInstance = null;
+  const mapSection = document.getElementById('print-f-map-section');
+  if (record.latitude && record.longitude) {
+    if (mapSection) mapSection.classList.remove('hidden');
+    try {
+      // Create fresh map instance
+      printMapInstance = L.map('print-f-map', {
+        zoomControl: false,
+        attributionControl: false,
+        fadeAnimation: false,
+        zoomAnimation: false
+      }).setView([record.latitude, record.longitude], 16);
+      
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(printMapInstance);
+      L.marker([record.latitude, record.longitude]).addTo(printMapInstance);
+      printMapInstance.invalidateSize();
+    } catch (mapErr) {
+      console.error('Error creating printing map:', mapErr);
+    }
+  } else {
+    if (mapSection) mapSection.classList.add('hidden');
+  }
   
   const cleanup = () => {
     el.classList.remove('print-active');
+    if (printMapInstance) {
+      try {
+        printMapInstance.remove();
+      } catch (err) {
+        console.error('Error removing map instance:', err);
+      }
+    }
     window.removeEventListener('afterprint', cleanup);
   };
   window.addEventListener('afterprint', cleanup);
-  window.print();
-  setTimeout(cleanup, 1500);
+  
+  // Delay printing slightly to let the Leaflet map tiles render
+  setTimeout(() => {
+    window.print();
+    setTimeout(cleanup, 1500);
+  }, 600);
 }
 
 function populatePrintFullDetails(record, qrCodeDataUrl) {
@@ -735,6 +770,7 @@ function populatePrintFullDetails(record, qrCodeDataUrl) {
   document.getElementById('print-f-aadhar').textContent = maskAadhaar(record.aadharNumber);
   document.getElementById('print-f-bank').textContent = record.bankAccount || 'No';
   document.getElementById('print-f-village').textContent = record.village || 'Ward 1';
+  document.getElementById('print-f-address-basic').textContent = record.gpsAddress || 'N/A';
   document.getElementById('print-f-status').textContent = record.status || 'Active';
   
   const income = record.annualIncome ? `₹${parseFloat(record.annualIncome).toLocaleString('en-IN')}` : '₹0';
