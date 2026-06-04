@@ -163,8 +163,12 @@
               <i data-lucide="user"></i>
             </div>
             <div class="user-info">
-              <span class="user-greeting">Welcome,</span>
-              <span class="user-name">Admin <i data-lucide="chevron-down" style="width:14px;height:14px;"></i></span>
+              <span class="user-greeting">Role:</span>
+              <select id="user-role-select" style="background: none; border: none; font-weight: bold; color: var(--gold); cursor: pointer; padding: 0 4px; font-size: 0.95rem; outline: none; font-family: inherit;">
+                <option value="Admin" style="background-color: var(--bg-card); color: var(--text-dark);" selected>Admin</option>
+                <option value="Super Admin" style="background-color: var(--bg-card); color: var(--text-dark);">Super Admin</option>
+                <option value="Citizen" style="background-color: var(--bg-card); color: var(--text-dark);">Citizen</option>
+              </select>
             </div>
           </div>
         </div>
@@ -375,6 +379,35 @@
                     <div class="form-group">
                       <label for="contactNo">Contact Phone Number</label>
                       <input type="tel" id="contactNo" placeholder="10-digit mobile number" pattern="[0-9]{10}">
+                    </div>
+                    <div class="form-group">
+                      <label for="village"><span>Village/Ward</span> <span class="required">*</span></label>
+                      <select id="village" required>
+                        <option value="Ward 1" selected>Ward 1</option>
+                        <option value="Ward 2">Ward 2</option>
+                        <option value="Ward 3">Ward 3</option>
+                        <option value="Ward 4">Ward 4</option>
+                        <option value="Ward 5">Ward 5</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label for="occupation"><span>Occupation</span> <span class="required">*</span></label>
+                      <select id="occupation" required>
+                        <option value="Agriculture" selected>Agriculture</option>
+                        <option value="Daily Wage Labor">Daily Wage Labor</option>
+                        <option value="Business/Self-Employed">Business / Self-Employed</option>
+                        <option value="Private Service">Private Service</option>
+                        <option value="Government Service">Government Service</option>
+                        <option value="Retired/Pensioner">Retired / Pensioner</option>
+                        <option value="Unemployed">Unemployed</option>
+                      </select>
+                    </div>
+                    <div class="form-group" id="status-group-wrapper">
+                      <label for="status">Status</label>
+                      <select id="status">
+                        <option value="Active" selected>Active</option>
+                        <option value="Inactive">Inactive</option>
+                      </select>
                     </div>
                     <div class="form-group">
                       <label for="familyMembers">Total Family Members</label>
@@ -788,24 +821,106 @@
           <h1 class="page-title">Household Directory</h1>
           <p class="page-subtitle">కుటుంబ వివరాలు – Browse all registered households</p>
 
-          <div class="directory-controls">
-            <input type="text" id="dir-search-input" placeholder="🔍  Search ID, name, phone, category...">
-            <select id="dir-category-filter">
-              <option value="">All Categories</option>
-              <option value="General">General</option>
-              <option value="OBC">OBC</option>
-              <option value="SC">SC</option>
-              <option value="ST">ST</option>
-            </select>
-            <select id="dir-migration-filter">
-              <option value="">All Migration</option>
-              <option value="No">No Migration</option>
-              <option value="Yes">Has Migration</option>
-            </select>
-            <button class="btn btn-primary btn-small" id="dir-refresh-btn">
-              <i data-lucide="refresh-cw"></i> Refresh
-            </button>
+          <!-- Statistics Cards for Directory -->
+          <div class="stats-row" style="margin-bottom: 24px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+            <div class="stat-card-v2" style="position: relative;">
+              <div class="stat-icon-circle" style="background: rgba(16, 185, 129, 0.1); color: var(--green-vivid);">
+                <i data-lucide="users"></i>
+              </div>
+              <div class="stat-details">
+                <span class="stat-label">Total Households</span>
+                <span class="stat-value" id="dir-stat-total">0</span>
+              </div>
+            </div>
+            <div class="stat-card-v2" style="position: relative;">
+              <div class="stat-icon-circle" style="background: rgba(59, 130, 246, 0.1); color: #3b82f6;">
+                <i data-lucide="shield-check"></i>
+              </div>
+              <div class="stat-details">
+                <span class="stat-label">Active</span>
+                <span class="stat-value" id="dir-stat-active">0</span>
+              </div>
+            </div>
+            <div class="stat-card-v2" style="position: relative;">
+              <div class="stat-icon-circle" style="background: rgba(239, 68, 68, 0.1); color: #ef4444;">
+                <i data-lucide="shield-alert"></i>
+              </div>
+              <div class="stat-details">
+                <span class="stat-label">Inactive</span>
+                <span class="stat-value" id="dir-stat-inactive">0</span>
+              </div>
+            </div>
+            <div class="stat-card-v2" style="position: relative;">
+              <div class="stat-icon-circle" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b;">
+                <i data-lucide="map"></i>
+              </div>
+              <div class="stat-details">
+                <span class="stat-label">Wards Covered</span>
+                <span class="stat-value" id="dir-stat-wards">0</span>
+              </div>
+            </div>
           </div>
+
+          <div class="directory-controls" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px;">
+            <!-- First Row: Search & Refresh/Export Buttons -->
+            <div style="display: flex; gap: 10px; width: 100%; flex-wrap: wrap;">
+              <input type="text" id="dir-search-input" placeholder="🔍 Search ID, head name, mobile or address..." style="flex: 1; min-width: 250px;">
+              
+              <button class="btn btn-secondary btn-small" id="dir-export-excel-btn">
+                <i data-lucide="file-spreadsheet"></i> Export Excel
+              </button>
+              <button class="btn btn-secondary btn-small" id="dir-export-pdf-btn">
+                <i data-lucide="file-text"></i> Export PDF
+              </button>
+              <button class="btn btn-primary btn-small" id="dir-refresh-btn">
+                <i data-lucide="refresh-cw"></i> Refresh
+              </button>
+            </div>
+            
+            <!-- Second Row: Advanced Filters & Sorting -->
+            <div style="display: flex; gap: 10px; flex-wrap: wrap; width: 100%;">
+              <select id="dir-village-filter" style="flex: 1; min-width: 130px;">
+                <option value="">All Wards</option>
+                <option value="Ward 1">Ward 1</option>
+                <option value="Ward 2">Ward 2</option>
+                <option value="Ward 3">Ward 3</option>
+                <option value="Ward 4">Ward 4</option>
+                <option value="Ward 5">Ward 5</option>
+              </select>
+              
+              <select id="dir-occupation-filter" style="flex: 1; min-width: 140px;">
+                <option value="">All Occupations</option>
+                <option value="Agriculture">Agriculture</option>
+                <option value="Daily Wage Labor">Daily Wage Labor</option>
+                <option value="Business/Self-Employed">Business/Self-Employed</option>
+                <option value="Private Service">Private Service</option>
+                <option value="Government Service">Government Service</option>
+                <option value="Retired/Pensioner">Retired/Pensioner</option>
+                <option value="Unemployed">Unemployed</option>
+              </select>
+
+              <select id="dir-status-filter" style="flex: 1; min-width: 110px;">
+                <option value="">All Statuses</option>
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+              </select>
+
+              <div style="display: flex; align-items: center; gap: 6px; flex: 1.2; min-width: 180px;">
+                <span style="font-size: 0.78rem; color: var(--text-muted); white-space: nowrap;">Reg Month:</span>
+                <input type="month" id="dir-date-filter" style="width: 100%; padding: 8px 10px; font-size: 0.8rem;">
+              </div>
+
+              <select id="dir-sort-by" style="flex: 1.2; min-width: 150px;">
+                <option value="id-asc" selected>Sort: ID (A-Z)</option>
+                <option value="id-desc">Sort: ID (Z-A)</option>
+                <option value="name-asc">Sort: Name (A-Z)</option>
+                <option value="name-desc">Sort: Name (Z-A)</option>
+                <option value="date-desc">Sort: Date (Newest)</option>
+                <option value="date-asc">Sort: Date (Oldest)</option>
+              </select>
+            </div>
+          </div>
+
           <div class="directory-stats-badge">
             <span id="directory-stats">Showing 0 records</span>
           </div>
@@ -814,18 +929,22 @@
               <thead>
                 <tr>
                   <th>Household ID</th>
-                  <th>Head of House</th>
-                  <th>Category</th>
-                  <th>Income Source</th>
+                  <th>Photo</th>
+                  <th>Head Name</th>
+                  <th>Village/Ward</th>
                   <th>Phone</th>
+                  <th>Aadhaar</th>
+                  <th>Address</th>
+                  <th>Occupation</th>
                   <th>Members</th>
-                  <th>Migration</th>
+                  <th>Reg Date</th>
+                  <th>Status</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody id="directory-table-body">
                 <tr>
-                  <td colspan="8" class="text-center py-8">
+                  <td colspan="12" class="text-center py-8">
                     <div class="spinner-container">
                       <div class="spinner"></div>
                       <p>Loading database records...</p>
@@ -834,6 +953,27 @@
                 </tr>
               </tbody>
             </table>
+          </div>
+
+          <!-- Pagination Panel -->
+          <div class="pagination-container" style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; flex-wrap: wrap; gap: 12px; background: var(--bg-card); padding: 12px 18px; border-radius: var(--radius-lg); border: 1px solid var(--border-light); box-shadow: var(--shadow-sm);">
+            <div class="pagination-info" style="font-size: 0.82rem; color: var(--text-muted);">
+              Showing <span id="pagination-start-index">0</span> to <span id="pagination-end-index">0</span> of <span id="pagination-total-records">0</span> records
+            </div>
+            <div class="pagination-controls" style="display: flex; align-items: center; gap: 8px;">
+              <div class="page-size-selector" style="display: flex; align-items: center; gap: 6px; margin-right: 8px;">
+                <span style="font-size: 0.8rem; color: var(--text-muted);">Show:</span>
+                <select id="pagination-page-size" style="padding: 4px 8px; border-radius: var(--radius-sm); border: 1.5px solid var(--border); font-size: 0.8rem; background: var(--bg-input); color: var(--text-dark);">
+                  <option value="10" selected>10</option>
+                  <option value="25">25</option>
+                  <option value="50">50</option>
+                  <option value="all">All</option>
+                </select>
+              </div>
+              <button class="btn btn-secondary btn-small" id="pagination-prev-btn" style="padding: 6px 12px;"><i data-lucide="chevron-left" style="width: 14px; height: 14px;"></i> Prev</button>
+              <span id="pagination-page-num" style="font-size: 0.82rem; font-weight: bold; color: var(--text-dark); min-width: 40px; text-align: center;">Page 1</span>
+              <button class="btn btn-secondary btn-small" id="pagination-next-btn" style="padding: 6px 12px;">Next <i data-lucide="chevron-right" style="width: 14px; height: 14px;"></i></button>
+            </div>
           </div>
         </section>
 

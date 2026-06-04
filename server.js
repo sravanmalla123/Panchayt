@@ -22,12 +22,9 @@ let dbPool = null;
 let supabaseActive = false;
 let dbInitPromise = null;
 
-// Cloudinary Configuration for Image Uploads
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'dqevrzhxe',
-  api_key: process.env.CLOUDINARY_API_KEY || '613463546287651',
-  api_secret: process.env.CLOUDINARY_API_SECRET || 'Fpe9fE6Hk4UgjJul6g0S2K-X6sw'
-});
+// Supabase Storage API Configuration
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://ywqhwnbeeivrgmvggmmp.supabase.co';
+const SUPABASE_KEY = process.env.SUPABASE_KEY || process.env.SUPABASE_ANON_KEY;
 
 async function connectDatabase() {
   if (DATABASE_URL) {
@@ -38,16 +35,96 @@ async function connectDatabase() {
           rejectUnauthorized: false
         }
       });
-      // Test connection and auto-create households table if missing
+      // Test connection
       await dbPool.query('SELECT NOW()');
+      
+      // Create households table
       await dbPool.query(`
         CREATE TABLE IF NOT EXISTS households (
           id TEXT PRIMARY KEY,
+          household_id TEXT UNIQUE,
+          head_name TEXT,
+          mobile_number TEXT,
+          village_name TEXT,
+          address TEXT,
+          family_members_count INTEGER,
           data JSONB,
-          created_at TIMESTAMPTZ DEFAULT NOW()
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          updated_at TIMESTAMPTZ DEFAULT NOW()
         );
       `);
-      console.log('Connected to Supabase PostgreSQL database successfully.');
+
+      // Create household_photos table
+      await dbPool.query(`
+        CREATE TABLE IF NOT EXISTS household_photos (
+          id SERIAL PRIMARY KEY,
+          household_id TEXT REFERENCES households(id) ON DELETE CASCADE,
+          photo_url TEXT NOT NULL,
+          uploaded_at TIMESTAMPTZ DEFAULT NOW()
+        );
+      `);
+
+      // Create audit_logs table
+      await dbPool.query(`
+        CREATE TABLE IF NOT EXISTS audit_logs (
+          id SERIAL PRIMARY KEY,
+          household_id TEXT,
+          action TEXT NOT NULL,
+          performed_by TEXT NOT NULL,
+          details JSONB,
+          performed_at TIMESTAMPTZ DEFAULT NOW()
+        );
+      `);
+
+      // Create storage bucket if storage exists
+      try {
+        await dbPool.query(`
+          INSERT INTO storage.buckets (id, name, public)
+          VALUES ('house-photos', 'house-photos', true)
+          ON CONFLICT (id) DO NOTHING;
+        `);
+
+        // Enable public access policies for storage
+        await dbPool.query(`
+          DO $$
+          BEGIN
+            IF NOT EXISTS (
+              SELECT 1 FROM pg_policies 
+              WHERE tablename = 'objects' 
+                AND schemaname = 'storage' 
+                AND policyname = 'Allow public select on house-photos'
+            ) THEN
+              CREATE POLICY "Allow public select on house-photos" ON storage.objects
+                FOR SELECT TO public USING (bucket_id = 'house-photos');
+            END IF;
+            
+            IF NOT EXISTS (
+              SELECT 1 FROM pg_policies 
+              WHERE tablename = 'objects' 
+                AND schemaname = 'storage' 
+                AND policyname = 'Allow public insert on house-photos'
+            ) THEN
+              CREATE POLICY "Allow public insert on house-photos" ON storage.objects
+                FOR INSERT TO public WITH CHECK (bucket_id = 'house-photos');
+            END IF;
+
+            IF NOT EXISTS (
+              SELECT 1 FROM pg_policies 
+              WHERE tablename = 'objects' 
+                AND schemaname = 'storage' 
+                AND policyname = 'Allow public delete on house-photos'
+            ) THEN
+              CREATE POLICY "Allow public delete on house-photos" ON storage.objects
+                FOR DELETE TO public USING (bucket_id = 'house-photos');
+            END IF;
+          END
+          $$;
+        `);
+      } catch (storageErr) {
+        console.warn('Storage schema or bucket creation skipped:', storageErr.message);
+      }
+
+      console.log('Connected to Supabase PostgreSQL database successfully and tables initialized.');
       supabaseActive = true;
     } catch (err) {
       console.error('Failed to connect to Supabase, falling back to local JSON database:', err);
@@ -149,7 +226,77 @@ if (!fs.existsSync(UPLOADS_DIR)) {
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 }
 
-// Helpers for photo uploads
+// Helpers for photo uploads to Supabase Storage
+async function uploadToSupabaseStorage(bucketName, filePath, base64Str) {
+  if (!SUPABASE_URL || !SUPABASE_KEY) {
+    throw new Error('Supabase URL or Key is not configured.');
+  }
+
+  const matches = base64Str.match(/^data:image\/([A-Za-z\-+\/]+);base64,(.+)$/);
+  let contentType = 'image/png';
+  let buffer;
+
+  if (matches && matches.length === 3) {
+    contentType = `image/${matches[1] === 'jpeg' ? 'jpeg' : matches[1]}`;
+    buffer = Buffer.from(matches[2], 'base64');
+  } else {
+    buffer = Buffer.from(base64Str.replace(/^data:image\/\w+;base64,/, ""), 'base64');
+  }
+
+  const uploadUrl = `${SUPABASE_URL.replace(/\/$/, '')}/storage/v1/object/${bucketName}/${filePath}`;
+  
+  const response = await fetch(uploadUrl, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'apikey': SUPABASE_KEY,
+      'Content-Type': contentType,
+      'x-upsert': 'true'
+    },
+    body: buffer
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Supabase Storage upload failed: ${response.statusText} - ${errText}`);
+  }
+
+  return `${SUPABASE_URL.replace(/\/$/, '')}/storage/v1/object/public/${bucketName}/${filePath}`;
+}
+
+async function deleteFromSupabaseStorage(bucketName, filePath) {
+  if (!SUPABASE_URL || !SUPABASE_KEY) return;
+  const deleteUrl = `${SUPABASE_URL.replace(/\/$/, '')}/storage/v1/object/${bucketName}/${filePath}`;
+  try {
+    const response = await fetch(deleteUrl, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'apikey': SUPABASE_KEY
+      }
+    });
+    if (!response.ok) {
+      console.warn(`Warning: Failed to delete ${filePath} from Supabase storage: ${response.statusText}`);
+    }
+  } catch (err) {
+    console.error(`Error deleting ${filePath} from Supabase storage:`, err);
+  }
+}
+
+function getStorageFilePathFromUrl(url) {
+  try {
+    const parts = url.split('/storage/v1/object/public/');
+    if (parts.length < 2) return null;
+    const bucketAndPath = parts[1];
+    const slashIdx = bucketAndPath.indexOf('/');
+    if (slashIdx === -1) return null;
+    return bucketAndPath.substring(slashIdx + 1);
+  } catch (err) {
+    console.error('Error parsing storage URL:', err);
+    return null;
+  }
+}
+
 async function savePhotos(householdId, photosBase64) {
   if (!photosBase64 || !Array.isArray(photosBase64)) return [];
   const urls = [];
@@ -157,32 +304,29 @@ async function savePhotos(householdId, photosBase64) {
   for (let idx = 0; idx < photosBase64.length; idx++) {
     const base64Str = photosBase64[idx];
     
-    // If it's already a saved Cloudinary URL or local file path, keep it
     if (typeof base64Str === 'string' && (base64Str.startsWith('http') || base64Str.startsWith('/uploads/'))) {
       urls.push(base64Str);
       continue;
     }
     
+    const filename = `${householdId}_photo_${idx}_${Date.now()}.png`;
+    
     try {
-      // Cloudinary handles base64 data URLs directly
-      const uploadResult = await cloudinary.uploader.upload(base64Str, {
-        folder: 'panchayat_photos',
-        public_id: `${householdId}_photo_${idx}_${Date.now()}`
-      });
-      urls.push(uploadResult.secure_url);
+      const publicUrl = await uploadToSupabaseStorage('house-photos', filename, base64Str);
+      urls.push(publicUrl);
     } catch (err) {
-      console.error(`Error saving photo ${idx} to Cloudinary for ${householdId}:`, err);
+      console.error(`Error saving photo ${idx} to Supabase Storage for ${householdId}:`, err);
       
-      // Fallback: save to local disk if Cloudinary fails
+      // Fallback: save to local disk
       try {
         const matches = base64Str.match(/^data:image\/([A-Za-z\-+\/]+);base64,(.+)$/);
         if (matches && matches.length === 3) {
           const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1];
           const buffer = Buffer.from(matches[2], 'base64');
-          const filename = `${householdId}_photo_${idx}_${Date.now()}.${ext}`;
-          const filepath = path.join(UPLOADS_DIR, filename);
+          const localFilename = `${householdId}_photo_${idx}_${Date.now()}.${ext}`;
+          const filepath = path.join(UPLOADS_DIR, localFilename);
           fs.writeFileSync(filepath, buffer);
-          urls.push(`/uploads/${filename}`);
+          urls.push(`/uploads/${localFilename}`);
         }
       } catch (localErr) {
         console.error(`Local fallback also failed for photo ${idx}:`, localErr);
@@ -190,26 +334,6 @@ async function savePhotos(householdId, photosBase64) {
     }
   }
   return urls;
-}
-
-function getPublicIdFromUrl(url) {
-  try {
-    if (!url.includes('res.cloudinary.com')) return null;
-    const parts = url.split('/image/upload/');
-    if (parts.length < 2) return null;
-    let path = parts[1]; // e.g. "v1716382103/panchayat_photos/H001_photo_0_1716382103.jpg"
-    // Remove version prefix if exists (e.g. "v1716382103/")
-    path = path.replace(/^v\d+\//, '');
-    // Strip file extension
-    const lastDotIdx = path.lastIndexOf('.');
-    if (lastDotIdx !== -1) {
-      path = path.substring(0, lastDotIdx);
-    }
-    return path;
-  } catch (err) {
-    console.error('Error parsing Cloudinary URL:', err);
-    return null;
-  }
 }
 
 async function deletePhotos(photoUrls) {
@@ -222,11 +346,11 @@ async function deletePhotos(photoUrls) {
         if (fs.existsSync(filepath)) {
           fs.unlinkSync(filepath);
         }
-      } else if (url.includes('res.cloudinary.com')) {
-        const publicId = getPublicIdFromUrl(url);
-        if (publicId) {
-          await cloudinary.uploader.destroy(publicId);
-          console.log(`Deleted photo ${publicId} from Cloudinary`);
+      } else if (url.includes('/storage/v1/object/public/')) {
+        const filePath = getStorageFilePathFromUrl(url);
+        if (filePath) {
+          await deleteFromSupabaseStorage('house-photos', filePath);
+          console.log(`Deleted photo ${filePath} from Supabase Storage`);
         }
       }
     } catch (err) {
@@ -239,7 +363,6 @@ function calculatePovertyStatus(annualIncome) {
   const incomeNum = parseFloat(annualIncome) || 0;
   return incomeNum <= 120000 ? 'BPL' : 'APL';
 }
-
 
 // Database Helpers (Local File Fallback)
 function readDatabase() {
@@ -262,7 +385,6 @@ function writeDatabase(data) {
   }
 }
 
-// Helper to calculate the next household ID (H001, H002, etc.)
 function getNextHouseholdId(records) {
   if (records.length === 0) return 'H001';
   let maxNum = 0;
@@ -309,14 +431,41 @@ async function getHouseholdById(id) {
 
 async function saveHousehold(record) {
   if (supabaseActive) {
+    const client = await dbPool.connect();
     try {
-      await dbPool.query(
-        'INSERT INTO households (id, data) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data',
-        [record.id, JSON.stringify(record)]
+      await client.query('BEGIN');
+      
+      await client.query(
+        `INSERT INTO households (
+          id, household_id, head_name, mobile_number, village_name, address, family_members_count, data
+        ) VALUES ($1, $1, $2, $3, $4, $5, $6, $7)`,
+        [
+          record.id,
+          record.headName,
+          record.contactNo,
+          record.village || 'Ward 1',
+          record.gpsAddress || '',
+          record.familyMembers || 0,
+          JSON.stringify(record)
+        ]
       );
+      
+      if (record.photos && record.photos.length) {
+        for (const photoUrl of record.photos) {
+          await client.query(
+            `INSERT INTO household_photos (household_id, photo_url) VALUES ($1, $2)`,
+            [record.id, photoUrl]
+          );
+        }
+      }
+      
+      await client.query('COMMIT');
       return true;
     } catch (err) {
-      console.error('Error saving to Supabase, falling back to local database:', err);
+      await client.query('ROLLBACK');
+      console.error('Error saving to Supabase:', err);
+    } finally {
+      client.release();
     }
   }
   const records = readDatabase();
@@ -326,14 +475,49 @@ async function saveHousehold(record) {
 
 async function updateHousehold(id, updatedRecord) {
   if (supabaseActive) {
+    const client = await dbPool.connect();
     try {
-      const res = await dbPool.query(
-        'UPDATE households SET data = $2 WHERE LOWER(id) = LOWER($1)',
-        [id, JSON.stringify(updatedRecord)]
+      await client.query('BEGIN');
+      
+      await client.query(
+        `UPDATE households SET
+           household_id = $1,
+           head_name = $2,
+           mobile_number = $3,
+           village_name = $4,
+           address = $5,
+           family_members_count = $6,
+           data = $7,
+           updated_at = NOW()
+         WHERE LOWER(id) = LOWER($1)`,
+        [
+          id,
+          updatedRecord.headName,
+          updatedRecord.contactNo,
+          updatedRecord.village || 'Ward 1',
+          updatedRecord.gpsAddress || '',
+          updatedRecord.familyMembers || 0,
+          JSON.stringify(updatedRecord)
+        ]
       );
-      return res.rowCount > 0;
+      
+      await client.query('DELETE FROM household_photos WHERE LOWER(household_id) = LOWER($1)', [id]);
+      if (updatedRecord.photos && updatedRecord.photos.length) {
+        for (const photoUrl of updatedRecord.photos) {
+          await client.query(
+            `INSERT INTO household_photos (household_id, photo_url) VALUES ($1, $2)`,
+            [id, photoUrl]
+          );
+        }
+      }
+      
+      await client.query('COMMIT');
+      return true;
     } catch (err) {
-      console.error('Error updating in Supabase, falling back to local database:', err);
+      await client.query('ROLLBACK');
+      console.error('Error updating in Supabase:', err);
+    } finally {
+      client.release();
     }
   }
   const records = readDatabase();
@@ -343,19 +527,43 @@ async function updateHousehold(id, updatedRecord) {
   return writeDatabase(records);
 }
 
-async function deleteHousehold(id) {
+async function deleteHousehold(id, role = 'Admin') {
+  const existingRecord = await getHouseholdById(id);
+  if (!existingRecord) return false;
+
   if (supabaseActive) {
+    const client = await dbPool.connect();
     try {
-      const res = await dbPool.query('DELETE FROM households WHERE LOWER(id) = LOWER($1)', [id]);
+      await client.query('BEGIN');
+      
+      const res = await client.query('DELETE FROM households WHERE LOWER(id) = LOWER($1)', [id]);
+      
+      await client.query(
+        `INSERT INTO audit_logs (household_id, action, performed_by, details)
+         VALUES ($1, 'DELETE', $2, $3)`,
+         [id, role, JSON.stringify(existingRecord)]
+      );
+      
+      await client.query('COMMIT');
+      
+      if (existingRecord.photos && existingRecord.photos.length) {
+        deletePhotos(existingRecord.photos).catch(err => console.error('Error deleting files from storage:', err));
+      }
+      
       return res.rowCount > 0;
     } catch (err) {
-      console.error('Error deleting from Supabase, falling back to local database:', err);
+      await client.query('ROLLBACK');
+      console.error('Error deleting from Supabase:', err);
+    } finally {
+      client.release();
     }
   }
+  
   const records = readDatabase();
   const index = records.findIndex(r => r.id.toUpperCase() === id.toUpperCase());
   if (index === -1) return false;
-  records.splice(index, 1);
+  records[index].status = 'Inactive';
+  records[index].updatedAt = new Date().toISOString();
   return writeDatabase(records);
 }
 
@@ -449,15 +657,55 @@ app.post('/api/households', async (req, res) => {
     return res.status(400).json({ error: 'Household Head Name is required' });
   }
 
+  // Duplicate Check
+  if (supabaseActive) {
+    try {
+      const dupCheck = await dbPool.query(
+        'SELECT id FROM households WHERE LOWER(head_name) = LOWER($1) AND mobile_number = $2',
+        [headName.trim(), (contactNo || '').trim()]
+      );
+      if (dupCheck.rows.length > 0) {
+        return res.status(400).json({ error: `A household with Head Name '${headName}' and Mobile Number '${contactNo}' is already registered.` });
+      }
+      
+      if (aadharNumber && aadharNumber.trim()) {
+        const aadharCheck = await dbPool.query(
+          "SELECT id FROM households WHERE aadhaar_number = $1 OR data->>'aadharNumber' = $1",
+          [aadharNumber.trim()]
+        );
+        if (aadharCheck.rows.length > 0) {
+          return res.status(400).json({ error: `A household with Aadhaar Number '${aadharNumber}' is already registered.` });
+        }
+      }
+    } catch (dbErr) {
+      console.error('Error during duplicate check:', dbErr);
+    }
+  } else {
+    const records = readDatabase();
+    const isDup = records.some(r => r.headName.toLowerCase() === headName.trim().toLowerCase() && r.contactNo === (contactNo || '').trim());
+    if (isDup) {
+      return res.status(400).json({ error: `A household with Head Name '${headName}' and Mobile Number '${contactNo}' is already registered.` });
+    }
+    if (aadharNumber && aadharNumber.trim()) {
+      const isAadharDup = records.some(r => r.aadharNumber === aadharNumber.trim() || (r.data && r.data.aadharNumber === aadharNumber.trim()));
+      if (isAadharDup) {
+        return res.status(400).json({ error: `A household with Aadhaar Number '${aadharNumber}' is already registered.` });
+      }
+    }
+  }
+
   const newId = await getNextId();
 
-  // Save base64-encoded photos to files (via Cloudinary)
+  // Save base64-encoded photos to Supabase Storage
   const savedPhotoUrls = await savePhotos(newId, req.body.photos);
 
   const newRecord = {
     id: newId,
     headName: headName.trim(),
     category: category || 'General',
+    village: (req.body.village || 'Ward 1').trim(),
+    occupation: (req.body.occupation || 'Agriculture').trim(),
+    status: req.body.status || 'Active',
     healthIssues: (healthIssues || '').trim(),
     mnregaJobCard: mnregaJobCard || 'No',
     govtBeneficiary: govtBeneficiary || [],
@@ -548,6 +796,9 @@ app.put('/api/households/:id', async (req, res) => {
     ...existingRecord,
     headName: req.body.headName ? req.body.headName.trim() : existingRecord.headName,
     category: req.body.category || existingRecord.category,
+    village: req.body.village !== undefined ? req.body.village.trim() : existingRecord.village || 'Ward 1',
+    occupation: req.body.occupation !== undefined ? req.body.occupation.trim() : existingRecord.occupation || 'Agriculture',
+    status: req.body.status || existingRecord.status || 'Active',
     healthIssues: req.body.healthIssues !== undefined ? req.body.healthIssues.trim() : existingRecord.healthIssues,
     mnregaJobCard: req.body.mnregaJobCard || existingRecord.mnregaJobCard,
     govtBeneficiary: req.body.govtBeneficiary || existingRecord.govtBeneficiary,
@@ -614,22 +865,22 @@ app.put('/api/households/:id', async (req, res) => {
   }
 });
 
-// 5. Delete a household
+// 5. Delete a household (Hard Delete with role authorization check and audit log)
 app.delete('/api/households/:id', async (req, res) => {
   const { id } = req.params;
-  const record = await getHouseholdById(id);
+  const role = req.headers['x-user-role'] || 'Citizen';
 
+  if (role !== 'Admin' && role !== 'Super Admin') {
+    return res.status(403).json({ error: 'Unauthorized: Only Admin and Super Admin can delete records' });
+  }
+
+  const record = await getHouseholdById(id);
   if (!record) {
     return res.status(404).json({ error: `Household with ID ${id} not found` });
   }
 
-  // Clean up associated photos
-  if (record.photos && record.photos.length) {
-    await deletePhotos(record.photos);
-  }
-
-  if (await deleteHousehold(id)) {
-    res.json({ message: `Household ${id} deleted successfully` });
+  if (await deleteHousehold(id, role)) {
+    res.json({ message: `Household ${id} deleted successfully`, record });
   } else {
     res.status(500).json({ error: 'Failed to write to database' });
   }

@@ -337,6 +337,13 @@ function resetFormToRegister() {
   editMode = false;
   editHouseholdId = null;
   uploadedPhotos = [];
+
+  const statusSelect = document.getElementById('status');
+  if (statusSelect) statusSelect.value = 'Active';
+  const villageSelect = document.getElementById('village');
+  if (villageSelect) villageSelect.value = 'Ward 1';
+  const occupationSelect = document.getElementById('occupation');
+  if (occupationSelect) occupationSelect.value = 'Agriculture';
   
   const titleEl = document.querySelector('#register-tab .page-title');
   if (titleEl) titleEl.textContent = 'Register New Household';
@@ -554,6 +561,9 @@ function initFormHandler() {
       headName: document.getElementById('headName').value.trim(),
       category: document.getElementById('category').value,
       contactNo: document.getElementById('contactNo').value.trim(),
+      village: document.getElementById('village').value,
+      occupation: document.getElementById('occupation').value,
+      status: document.getElementById('status').value,
       familyMembers: parseInt(document.getElementById('familyMembers').value, 10) || 0,
       migrationStatus: document.getElementById('migrationStatus').value,
       migrationDetails: document.getElementById('migrationDetails') ? document.getElementById('migrationDetails').value.trim() : '',
@@ -691,7 +701,7 @@ function populatePrintReceipt(record, qrCodeDataUrl) {
   if (landEl) landEl.textContent = record.landOwned === 'Yes' ? `${record.landAcres} Acres` : 'No';
 
   document.getElementById('print-h-income-src').textContent = record.mainIncomeSource || 'N/A';
-  document.getElementById('print-h-aadhar').textContent = record.aadharNumber || 'N/A';
+  document.getElementById('print-h-aadhar').textContent = maskAadhaar(record.aadharNumber);
   document.getElementById('print-h-bank').textContent = record.bankAccount || 'No';
   document.getElementById('print-qr-img').src = qrCodeDataUrl;
   
@@ -708,6 +718,7 @@ function initSuccessModalHandlers() {
   closeBtn.addEventListener('click', () => {
     overlay.classList.add('hidden');
     fetchStats();
+    loadDirectory();
   });
 
   printBtn.addEventListener('click', () => {
@@ -788,7 +799,7 @@ function populateDetailsCard(data) {
   }
 
   const detailAadhar = document.getElementById('detail-aadharNumber');
-  if (detailAadhar) detailAadhar.textContent = data.aadharNumber || 'N/A';
+  if (detailAadhar) detailAadhar.textContent = maskAadhaar(data.aadharNumber);
 
   const detailBank = document.getElementById('detail-bankAccount');
   if (detailBank) detailBank.textContent = data.bankAccount || 'No';
@@ -1004,24 +1015,81 @@ function populateDetailsCard(data) {
   if (window.lucide) lucide.createIcons();
 }
 
+// Directory Pagination & Sorting State
+let directoryPage = 1;
+let directoryPageSize = 10;
+
+// Aadhaar Masking Helper
+function maskAadhaar(aadhar) {
+  if (!aadhar) return 'N/A';
+  const clean = aadhar.replace(/\D/g, '');
+  if (clean.length === 12) {
+    return `XXXX-XXXX-${clean.substring(8)}`;
+  }
+  if (clean.length > 4) {
+    return '*'.repeat(clean.length - 4) + clean.substring(clean.length - 4);
+  }
+  return clean || 'N/A';
+}
+
 // 7. Directory List Handlers
 function initDirectoryHandlers() {
   const searchInput = document.getElementById('dir-search-input');
-  const catFilter = document.getElementById('dir-category-filter');
-  const migFilter = document.getElementById('dir-migration-filter');
+  const villageFilter = document.getElementById('dir-village-filter');
+  const occupationFilter = document.getElementById('dir-occupation-filter');
+  const statusFilter = document.getElementById('dir-status-filter');
+  const dateFilter = document.getElementById('dir-date-filter');
+  const sortBy = document.getElementById('dir-sort-by');
   const refreshBtn = document.getElementById('dir-refresh-btn');
+  
+  const excelBtn = document.getElementById('dir-export-excel-btn');
+  const pdfBtn = document.getElementById('dir-export-pdf-btn');
+  
+  const prevBtn = document.getElementById('pagination-prev-btn');
+  const nextBtn = document.getElementById('pagination-next-btn');
+  const pageSizeSelect = document.getElementById('pagination-page-size');
 
-  searchInput.addEventListener('input', renderFilteredDirectory);
-  catFilter.addEventListener('change', renderFilteredDirectory);
-  migFilter.addEventListener('change', renderFilteredDirectory);
-  refreshBtn.addEventListener('click', loadDirectory);
+  // Input events
+  if (searchInput) searchInput.addEventListener('input', () => { directoryPage = 1; renderFilteredDirectory(); });
+  if (villageFilter) villageFilter.addEventListener('change', () => { directoryPage = 1; renderFilteredDirectory(); });
+  if (occupationFilter) occupationFilter.addEventListener('change', () => { directoryPage = 1; renderFilteredDirectory(); });
+  if (statusFilter) statusFilter.addEventListener('change', () => { directoryPage = 1; renderFilteredDirectory(); });
+  if (dateFilter) dateFilter.addEventListener('change', () => { directoryPage = 1; renderFilteredDirectory(); });
+  if (sortBy) sortBy.addEventListener('change', () => { directoryPage = 1; renderFilteredDirectory(); });
+  if (refreshBtn) refreshBtn.addEventListener('click', loadDirectory);
+
+  // Export events
+  if (excelBtn) excelBtn.addEventListener('click', exportDirectoryToExcel);
+  if (pdfBtn) pdfBtn.addEventListener('click', exportDirectoryToPDF);
+
+  // Pagination events
+  if (prevBtn) prevBtn.addEventListener('click', () => {
+    if (directoryPage > 1) {
+      directoryPage--;
+      renderFilteredDirectory();
+    }
+  });
+  if (nextBtn) nextBtn.addEventListener('click', () => {
+    const totalRecords = getFilteredRecordsCount();
+    const size = directoryPageSize === 'all' ? totalRecords : parseInt(directoryPageSize);
+    const maxPage = size === 0 ? 1 : Math.ceil(totalRecords / size);
+    if (directoryPage < maxPage) {
+      directoryPage++;
+      renderFilteredDirectory();
+    }
+  });
+  if (pageSizeSelect) pageSizeSelect.addEventListener('change', (e) => {
+    directoryPageSize = e.target.value;
+    directoryPage = 1;
+    renderFilteredDirectory();
+  });
 }
 
 async function loadDirectory() {
   const tbody = document.getElementById('directory-table-body');
   tbody.innerHTML = `
     <tr>
-      <td colspan="8" class="text-center py-8">
+      <td colspan="12" class="text-center py-8">
         <div class="spinner-container">
           <div class="spinner"></div>
           <p>Refreshing database...</p>
@@ -1035,11 +1103,16 @@ async function loadDirectory() {
     if (!response.ok) throw new Error('Database refresh failed');
 
     allHouseholds = await response.json();
+    
+    // Default: Sort by newest registration date
     allHouseholds.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     
     // Save to local storage for offline use
     localStorage.setItem('allHouseholds', JSON.stringify(allHouseholds));
     
+    // Calculate and render stats cards
+    updateDirectoryStats();
+
     renderFilteredDirectory();
   } catch (err) {
     console.error('Error fetching directory database:', err);
@@ -1048,6 +1121,7 @@ async function loadDirectory() {
     const cached = localStorage.getItem('allHouseholds');
     if (cached) {
       allHouseholds = JSON.parse(cached);
+      updateDirectoryStats();
       renderFilteredDirectory();
       
       // Notify user they are viewing offline data
@@ -1059,7 +1133,7 @@ async function loadDirectory() {
     } else {
       tbody.innerHTML = `
         <tr>
-          <td colspan="8" class="text-center py-8" style="color:var(--danger)">
+          <td colspan="12" class="text-center py-8" style="color:var(--danger)">
             <i data-lucide="alert-triangle" style="margin:0 auto 8px auto; display:block; width:30px; height:30px;"></i>
             Failed to load records. Make sure the server is online.
           </td>
@@ -1070,48 +1144,144 @@ async function loadDirectory() {
   }
 }
 
-function renderFilteredDirectory() {
-  const tbody = document.getElementById('directory-table-body');
-  const searchTerm = document.getElementById('dir-search-input').value.toLowerCase().trim();
-  const selectedCat = document.getElementById('dir-category-filter').value;
-  const selectedMig = document.getElementById('dir-migration-filter').value;
-  const statsSpan = document.getElementById('directory-stats');
+function updateDirectoryStats() {
+  const totalEl = document.getElementById('dir-stat-total');
+  const activeEl = document.getElementById('dir-stat-active');
+  const inactiveEl = document.getElementById('dir-stat-inactive');
+  const wardsEl = document.getElementById('dir-stat-wards');
+
+  if (totalEl) totalEl.textContent = allHouseholds.length;
+  if (activeEl) activeEl.textContent = allHouseholds.filter(h => (h.status || 'Active') === 'Active').length;
+  if (inactiveEl) inactiveEl.textContent = allHouseholds.filter(h => (h.status || 'Active') === 'Inactive').length;
+  
+  if (wardsEl) {
+    const wards = new Set(allHouseholds.map(h => h.village).filter(Boolean));
+    wardsEl.textContent = wards.size || 0;
+  }
+}
+
+function getFilteredRecords() {
+  const searchInput = document.getElementById('dir-search-input');
+  const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
+  
+  const villageFilter = document.getElementById('dir-village-filter');
+  const selectedVillage = villageFilter ? villageFilter.value : '';
+  
+  const occupationFilter = document.getElementById('dir-occupation-filter');
+  const selectedOcc = occupationFilter ? occupationFilter.value : '';
+  
+  const statusFilter = document.getElementById('dir-status-filter');
+  const selectedStatus = statusFilter ? statusFilter.value : '';
+  
+  const dateFilter = document.getElementById('dir-date-filter');
+  const selectedDate = dateFilter ? dateFilter.value : ''; // e.g. "2026-06"
 
   const filtered = allHouseholds.filter(item => {
-    const catMatch = !selectedCat || item.category === selectedCat;
-    const migMatch = !selectedMig || item.migrationStatus === selectedMig;
-    
+    // Search match: Household ID, Head Name, Phone, and Address (gpsAddress)
     const searchMatch = !searchTerm || 
       item.id.toLowerCase().includes(searchTerm) ||
-      item.headName.toLowerCase().includes(searchTerm) ||
-      item.category.toLowerCase().includes(searchTerm) ||
-      (item.mainIncomeSource && item.mainIncomeSource.toLowerCase().includes(searchTerm)) ||
-      (item.contactNo && item.contactNo.includes(searchTerm));
-      
-    return catMatch && migMatch && searchMatch;
+      (item.headName && item.headName.toLowerCase().includes(searchTerm)) ||
+      (item.contactNo && item.contactNo.includes(searchTerm)) ||
+      (item.gpsAddress && item.gpsAddress.toLowerCase().includes(searchTerm));
+
+    const villageMatch = !selectedVillage || (item.village === selectedVillage);
+    const occMatch = !selectedOcc || (item.occupation === selectedOcc);
+    const statusMatch = !selectedStatus || (item.status || 'Active') === selectedStatus;
+    
+    let dateMatch = true;
+    if (selectedDate) {
+      dateMatch = item.createdAt && item.createdAt.substring(0, 7) === selectedDate;
+    }
+    
+    return searchMatch && villageMatch && occMatch && statusMatch && dateMatch;
   });
 
-  statsSpan.textContent = `Showing ${filtered.length} of ${allHouseholds.length} households`;
+  const sortBy = document.getElementById('dir-sort-by');
+  const sortVal = sortBy ? sortBy.value : 'id-asc';
+  
+  filtered.sort((a, b) => {
+    if (sortVal === 'id-asc') return a.id.localeCompare(b.id);
+    if (sortVal === 'id-desc') return b.id.localeCompare(a.id);
+    if (sortVal === 'name-asc') return (a.headName || '').localeCompare(b.headName || '');
+    if (sortVal === 'name-desc') return (b.headName || '').localeCompare(a.headName || '');
+    if (sortVal === 'date-desc') return new Date(b.createdAt) - new Date(a.createdAt);
+    if (sortVal === 'date-asc') return new Date(a.createdAt) - new Date(b.createdAt);
+    return 0;
+  });
 
-  if (filtered.length === 0) {
+  return filtered;
+}
+
+function getFilteredRecordsCount() {
+  return getFilteredRecords().length;
+}
+
+function renderFilteredDirectory() {
+  const tbody = document.getElementById('directory-table-body');
+  const statsSpan = document.getElementById('directory-stats');
+  
+  const filtered = getFilteredRecords();
+  const totalRecords = filtered.length;
+
+  statsSpan.textContent = `Showing ${totalRecords} of ${allHouseholds.length} households`;
+
+  if (totalRecords === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="8" class="text-center py-8">No matching records found.</td>
+        <td colspan="12" class="text-center py-8">
+          <div style="color: var(--text-muted);">
+            <i data-lucide="folder-open" style="margin: 0 auto 8px; width: 32px; height: 32px; display: block; opacity: 0.6;"></i>
+            No matching records found.
+          </div>
+        </td>
       </tr>
     `;
+    if (window.lucide) lucide.createIcons();
     return;
   }
 
-  tbody.innerHTML = filtered.map(item => {
+  // Pagination Math
+  const size = directoryPageSize === 'all' ? totalRecords : parseInt(directoryPageSize);
+  const maxPage = size === 0 ? 1 : Math.ceil(totalRecords / size);
+  if (directoryPage > maxPage) directoryPage = maxPage;
+  if (directoryPage < 1) directoryPage = 1;
+  
+  const startIndex = (directoryPage - 1) * size;
+  const endIndex = Math.min(startIndex + size, totalRecords);
+  
+  // Update UI Pagination Controls
+  const startEl = document.getElementById('pagination-start-index');
+  const endEl = document.getElementById('pagination-end-index');
+  const totalEl = document.getElementById('pagination-total-records');
+  const numEl = document.getElementById('pagination-page-num');
+  
+  if (startEl) startEl.textContent = totalRecords === 0 ? 0 : startIndex + 1;
+  if (endEl) endEl.textContent = endIndex;
+  if (totalEl) totalEl.textContent = totalRecords;
+  if (numEl) numEl.textContent = `Page ${directoryPage} / ${maxPage}`;
+
+  const paginated = filtered.slice(startIndex, endIndex);
+
+  tbody.innerHTML = paginated.map(item => {
+    const regDate = item.createdAt ? new Date(item.createdAt).toLocaleDateString() : 'N/A';
+    const statusVal = item.status || 'Active';
+    const badgeClass = statusVal.toLowerCase() === 'active' ? 'badge-poverty apl' : 'badge-poverty bpl';
+    
     return `
       <tr onclick="viewHouseholdFromTable('${item.id}')">
         <td class="table-id-cell">${item.id}</td>
+        <td>
+          ${item.photos && item.photos.length ? `<img src="${item.photos[0]}" style="width: 32px; height: 32px; border-radius: 4px; object-fit: cover; border: 1px solid var(--border);" onerror="this.src='https://placehold.co/100x100?text=No+Photo'">` : `<div style="width: 32px; height: 32px; border-radius: 4px; background: var(--border-light); display: flex; align-items: center; justify-content: center; font-size: 0.65rem; color: var(--text-muted); font-weight: bold; border: 1px solid var(--border);">No Img</div>`}
+        </td>
         <td class="table-name-cell">${item.headName}</td>
-        <td>${item.category}</td>
-        <td>${item.mainIncomeSource || 'N/A'}</td>
+        <td>${item.village || 'Ward 1'}</td>
         <td>${item.contactNo || 'N/A'}</td>
+        <td style="font-family: monospace;">${maskAadhaar(item.aadharNumber)}</td>
+        <td style="max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${item.gpsAddress || ''}">${item.gpsAddress || 'N/A'}</td>
+        <td>${item.occupation || 'Agriculture'}</td>
         <td>${item.familyMembers} members</td>
-        <td>${item.migrationStatus}</td>
+        <td>${regDate}</td>
+        <td><span class="${badgeClass}">${statusVal}</span></td>
         <td>
           <div class="table-actions">
             <button class="action-icon-btn" title="View details" onclick="event.stopPropagation(); viewHouseholdFromTable('${item.id}')">
@@ -1133,6 +1303,130 @@ function renderFilteredDirectory() {
   }).join('');
 
   if (window.lucide) lucide.createIcons();
+}
+
+function exportDirectoryToExcel() {
+  const filtered = getFilteredRecords();
+  if (filtered.length === 0) {
+    alert('No records to export');
+    return;
+  }
+  
+  const headers = [
+    'Household ID',
+    'Head of Family',
+    'Village/Ward',
+    'Contact Number',
+    'Aadhaar Number',
+    'Address',
+    'Occupation',
+    'Family Members',
+    'Registration Date',
+    'Status'
+  ];
+  
+  const rows = filtered.map(item => [
+    item.id,
+    item.headName,
+    item.village || 'Ward 1',
+    item.contactNo || 'N/A',
+    item.aadharNumber || 'N/A',
+    item.gpsAddress || 'N/A',
+    item.occupation || 'Agriculture',
+    item.familyMembers,
+    item.createdAt ? new Date(item.createdAt).toLocaleDateString() : 'N/A',
+    item.status || 'Active'
+  ]);
+  
+  let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; // Include BOM for proper Excel encoding
+  csvContent += headers.map(h => `"${h.replace(/"/g, '""')}"`).join(",") + "\n";
+  rows.forEach(row => {
+    csvContent += row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",") + "\n";
+  });
+  
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement("a");
+  link.setAttribute("href", encodedUri);
+  link.setAttribute("download", `Panchayat_Households_Export_${Date.now()}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+function exportDirectoryToPDF() {
+  const filtered = getFilteredRecords();
+  if (filtered.length === 0) {
+    alert('No records to export');
+    return;
+  }
+  
+  const printWindow = window.open('', '_blank');
+  printWindow.document.write(`
+    <html>
+      <head>
+        <title>Panchayat Household Directory Export</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; color: #333; }
+          h1 { text-align: center; color: #15803d; margin-bottom: 5px; }
+          h3 { text-align: center; color: #666; margin-top: 0; margin-bottom: 20px; font-weight: normal; font-size: 0.9rem; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.78rem; }
+          th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; }
+          th { background-color: #f3f4f6; font-weight: bold; color: #1f2937; }
+          tr:nth-child(even) { background-color: #fafafa; }
+          .badge { padding: 3px 8px; border-radius: 9999px; font-size: 0.7rem; font-weight: bold; text-transform: uppercase; }
+          .badge-active { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+          .badge-inactive { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6c6; }
+        </style>
+      </head>
+      <body>
+        <h1>Gram Panchayat Village Portal</h1>
+        <h3>Household Registry Export - Generated on ${new Date().toLocaleDateString()}</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Head Name</th>
+              <th>Village/Ward</th>
+              <th>Phone</th>
+              <th>Aadhaar</th>
+              <th>Address</th>
+              <th>Occupation</th>
+              <th>Members</th>
+              <th>Reg Date</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${filtered.map(item => `
+              <tr>
+                <td><strong>${item.id}</strong></td>
+                <td>${item.headName}</td>
+                <td>${item.village || 'Ward 1'}</td>
+                <td>${item.contactNo || 'N/A'}</td>
+                <td style="font-family: monospace;">${maskAadhaar(item.aadharNumber)}</td>
+                <td>${item.gpsAddress || 'N/A'}</td>
+                <td>${item.occupation || 'Agriculture'}</td>
+                <td>${item.familyMembers}</td>
+                <td>${item.createdAt ? new Date(item.createdAt).toLocaleDateString() : 'N/A'}</td>
+                <td>
+                  <span class="badge ${ (item.status || 'Active').toLowerCase() === 'active' ? 'badge-active' : 'badge-inactive' }">
+                    ${item.status || 'Active'}
+                  </span>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        <script>
+          window.onload = function() {
+            window.print();
+            setTimeout(function() { window.close(); }, 500);
+          };
+        </script>
+      </body>
+    </html>
+  `);
+  printWindow.document.close();
 }
 
 // Global actions linked to window for table onclick handlers
@@ -1161,7 +1455,6 @@ window.printHouseholdFromTable = async function(id) {
     alert('Error printing card. Could not fetch data.');
   }
 };
-
 async function fetchStats() {
   try {
     const response = await fetch(`${API_URL}/households`);
@@ -1776,6 +2069,9 @@ async function loadHouseholdForEdit(id) {
     document.getElementById('headName').value = data.headName || '';
     document.getElementById('category').value = data.category || 'General';
     document.getElementById('contactNo').value = data.contactNo || '';
+    document.getElementById('village').value = data.village || 'Ward 1';
+    document.getElementById('occupation').value = data.occupation || 'Agriculture';
+    document.getElementById('status').value = data.status || 'Active';
     document.getElementById('migrationStatus').value = data.migrationStatus || 'No';
     
     const migrationDetailsGroup = document.getElementById('migration-details-group');
@@ -1961,16 +2257,30 @@ async function loadHouseholdForEdit(id) {
 }
 
 async function deleteHousehold(id) {
+  const roleSelect = document.getElementById('user-role-select');
+  const role = roleSelect ? roleSelect.value : 'Citizen';
+
+  if (role !== 'Admin' && role !== 'Super Admin') {
+    alert('Unauthorized: Citizens are not authorized to delete household records.');
+    return;
+  }
+
   if (!confirm(`Are you sure you want to delete household ${id}? This action cannot be undone.`)) {
     return;
   }
   
   try {
     const response = await fetch(`${API_URL}/households/${id}`, {
-      method: 'DELETE'
+      method: 'DELETE',
+      headers: {
+        'x-user-role': role
+      }
     });
     
-    if (!response.ok) throw new Error('Delete request failed');
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.error || 'Delete request failed');
+    }
     
     alert(`Household ${id} has been deleted successfully.`);
     
@@ -1989,7 +2299,7 @@ async function deleteHousehold(id) {
     
   } catch (err) {
     console.error('Error deleting household:', err);
-    alert(`Failed to delete household ${id}. Make sure the server is online.`);
+    alert(`Failed to delete household ${id}: ${err.message}`);
   }
 }
 
@@ -2030,7 +2340,8 @@ async function updateGPSFields(lat, lng) {
     registerMarker = L.marker([lat, lng]).addTo(registerMap);
   }
 
-  registerMap.setView([lat, lng]);
+  registerMap.setView([lat, lng], 17);
+  registerMap.invalidateSize();
 
   // Fetch address via reverse geocoding
   try {
