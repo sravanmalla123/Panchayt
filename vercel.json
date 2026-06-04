@@ -2,6 +2,10 @@
   "version": 2,
   "builds": [
     {
+      "src": "public/**",
+      "use": "@vercel/static"
+    },
+    {
       "src": "server.js",
       "use": "@vercel/node",
       "config": {
@@ -13,6 +17,38 @@
     }
   ],
   "routes": [
+    {
+      "src": "/app.js",
+      "dest": "/public/app.js"
+    },
+    {
+      "src": "/style.css",
+      "dest": "/public/style.css"
+    },
+    {
+      "src": "/index.html",
+      "dest": "/public/index.html"
+    },
+    {
+      "src": "/manifest.json",
+      "dest": "/public/manifest.json"
+    },
+    {
+      "src": "/sw.js",
+      "dest": "/public/sw.js"
+    },
+    {
+      "src": "/icon.svg",
+      "dest": "/public/icon.svg"
+    },
+    {
+      "src": "/village_banner.png",
+      "dest": "/public/village_banner.png"
+    },
+    {
+      "src": "/village_bg.png",
+      "dest": "/public/village_bg.png"
+    },
     {
       "src": "/(.*)",
       "dest": "server.js"
