@@ -706,6 +706,7 @@ app.get('/api/households/:id', async (req, res) => {
 // 3. Register a new household
 app.post('/api/households', async (req, res) => {
   const {
+    householdNumber,
     headName,
     category,
     healthIssues,
@@ -733,6 +734,18 @@ app.post('/api/households', async (req, res) => {
   // Validation
   if (!headName) {
     return res.status(400).json({ error: 'Household Head Name is required' });
+  }
+  
+  if (!householdNumber || !householdNumber.trim()) {
+    return res.status(400).json({ error: 'Household Number is required. Please enter a household number.' });
+  }
+  
+  const sanitizedHouseholdNumber = householdNumber.trim().toUpperCase();
+  
+  // Check if household number is already in use
+  const existingById = await getHouseholdById(sanitizedHouseholdNumber);
+  if (existingById) {
+    return res.status(400).json({ error: `Household Number '${sanitizedHouseholdNumber}' is already in use. Please choose a different household number.` });
   }
 
   // Duplicate Check
@@ -772,7 +785,7 @@ app.post('/api/households', async (req, res) => {
     }
   }
 
-  const newId = await getNextId();
+  const newId = sanitizedHouseholdNumber;
 
   // Save base64-encoded photos to Supabase Storage
   const savedPhotoUrls = await savePhotos(newId, req.body.photos);

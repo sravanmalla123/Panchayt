@@ -338,6 +338,16 @@ function resetFormToRegister() {
   editHouseholdId = null;
   uploadedPhotos = [];
 
+  // Reset Household Number field to be editable
+  const householdNumberInput = document.getElementById('householdNumber');
+  if (householdNumberInput) {
+    householdNumberInput.value = '';
+    householdNumberInput.readOnly = false;
+    householdNumberInput.style.backgroundColor = '';
+    householdNumberInput.style.cursor = '';
+    householdNumberInput.style.color = '';
+  }
+
   const statusSelect = document.getElementById('status');
   if (statusSelect) statusSelect.value = 'Active';
   const villageSelect = document.getElementById('village');
@@ -558,6 +568,7 @@ function initFormHandler() {
     });
 
     const payload = {
+      householdNumber: document.getElementById('householdNumber') ? document.getElementById('householdNumber').value.trim().toUpperCase() : '',
       headName: document.getElementById('headName').value.trim(),
       category: document.getElementById('category').value,
       contactNo: document.getElementById('contactNo').value.trim(),
@@ -909,6 +920,7 @@ function populatePrintFullDetails(record, qrCodeDataUrl) {
   };
 
   safeSetText('print-f-id', record.id);
+  safeSetText('print-f-id-header', record.id);
   safeSetText('print-f-headName', record.headName);
   safeSetText('print-f-category', record.category || 'General');
   safeSetText('print-f-phone', record.contactNo || 'N/A');
@@ -2494,6 +2506,14 @@ async function loadHouseholdForEdit(id) {
     if (submitBtn) submitBtn.innerHTML = '<i data-lucide="check-circle-2"></i> Update Household';
     
     // Populate Form Fields
+    const householdNumberInput = document.getElementById('householdNumber');
+    if (householdNumberInput) {
+      householdNumberInput.value = data.id || '';
+      householdNumberInput.readOnly = true; // Cannot change ID when editing
+      householdNumberInput.style.backgroundColor = 'var(--bg-app)';
+      householdNumberInput.style.cursor = 'not-allowed';
+      householdNumberInput.style.color = 'var(--green-vivid)';
+    }
     document.getElementById('headName').value = data.headName || '';
     document.getElementById('category').value = data.category || 'General';
     document.getElementById('contactNo').value = data.contactNo || '';

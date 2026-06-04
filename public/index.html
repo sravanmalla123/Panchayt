@@ -96,7 +96,7 @@
           <path d="M50,18 L60,38 L82,38 L65,52 L74,75 L50,60 L26,75 L35,52 L18,38 L40,38 Z" fill="#d4a017"/>
         </svg>
         <div class="report-meta" style="margin-top: 4px;">
-          <h2 id="print-f-id" style="font-size: 1.1rem; font-weight: 900; color: #1b4332; margin: 0; font-family: monospace;">H000</h2>
+          <h2 id="print-f-id-header" style="font-size: 1.1rem; font-weight: 900; color: #1b4332; margin: 0; font-family: monospace;">H000</h2>
           <span style="font-size: 0.5rem; font-weight: 800; color: #d4a017; text-transform: uppercase; letter-spacing: 0.5px;">HOUSEHOLD NO</span>
         </div>
       </div>
@@ -589,6 +589,10 @@
                 <div class="form-section-group">
                   <h4 class="section-title-tag"><i data-lucide="user-check"></i> Basic & Social Info</h4>
                   <div class="form-grid">
+                    <div class="form-group">
+                      <label for="householdNumber"><span>Household Number</span> <span class="required">*</span></label>
+                      <input type="text" id="householdNumber" placeholder="e.g. H001 or 101" required style="font-weight: bold; font-size: 1rem; letter-spacing: 1px; text-transform: uppercase;">
+                    </div>
                     <div class="form-group full-width">
                       <label for="headName"><span>Household Head Name</span> <span class="required">*</span></label>
                       <input type="text" id="headName" placeholder="Enter full name of household head" required>
