@@ -710,17 +710,7 @@ function populatePrintReceipt(record, qrCodeDataUrl) {
 }
 
 function printReceiptCard(record, qrCode) {
-  populatePrintReceipt(record, qrCode);
-  const el = document.getElementById('print-receipt');
-  el.classList.add('print-active');
-  
-  const cleanup = () => {
-    el.classList.remove('print-active');
-    window.removeEventListener('afterprint', cleanup);
-  };
-  window.addEventListener('afterprint', cleanup);
-  window.print();
-  setTimeout(cleanup, 1500);
+  printFullHouseholdSurvey(record, qrCode);
 }
 
 function printFullHouseholdSurvey(record, qrCode) {
@@ -828,6 +818,21 @@ function populatePrintFullDetails(record, qrCodeDataUrl) {
     `).join('');
   } else {
     tbody.innerHTML = `<tr><td colspan="11" style="text-align: center;">No members listed</td></tr>`;
+  }
+
+  // House Photos
+  const photosContainer = document.getElementById('print-f-photos-container');
+  const photosSection = document.getElementById('print-f-photos-section');
+  if (photosContainer) {
+    if (record.photos && record.photos.length) {
+      photosContainer.innerHTML = record.photos.map(url => `
+        <img src="${url}" class="print-photo" alt="House Photo">
+      `).join('');
+      if (photosSection) photosSection.classList.remove('hidden');
+    } else {
+      photosContainer.innerHTML = '';
+      if (photosSection) photosSection.classList.add('hidden');
+    }
   }
 }
 

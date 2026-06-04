@@ -1318,6 +1318,14 @@ body.dark-mode .ticker-bar { background: #451a03; border-bottom-color: rgba(217,
     margin: 2px;
   }
   
+  #print-full-details .print-photo {
+    width: 120px;
+    height: 120px;
+    object-fit: cover;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+  }
+  
   hr { border: none; border-top: 1px solid #e0e0e0; }
 }
 
