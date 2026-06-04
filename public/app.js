@@ -784,6 +784,14 @@ function downloadFullHouseholdSurveyPDF(record, qrCode) {
   el.style.background = '#fff';
   el.style.color = '#000';
   
+  // Hide the QR Code section during PDF generation
+  const qrSection = document.getElementById('print-f-qr-section');
+  let originalQrStyle = '';
+  if (qrSection) {
+    originalQrStyle = qrSection.getAttribute('style') || '';
+    qrSection.style.setProperty('display', 'none', 'important');
+  }
+  
   // 3. Initialize GPS Map inside the print container for the screenshot
   let printMapInstance = null;
   const mapSection = document.getElementById('print-f-map-section');
@@ -851,6 +859,15 @@ function downloadFullHouseholdSurveyPDF(record, qrCode) {
       el.setAttribute('style', originalStyle);
     } else {
       el.removeAttribute('style');
+    }
+    
+    // Restore QR code section style
+    if (qrSection) {
+      if (originalQrStyle) {
+        qrSection.setAttribute('style', originalQrStyle);
+      } else {
+        qrSection.removeAttribute('style');
+      }
     }
     
     // Destroy leaflet instance
@@ -941,12 +958,14 @@ function populatePrintFullDetails(record, qrCodeDataUrl) {
   safeSetText('print-f-latitude', record.latitude || 'N/A');
   safeSetText('print-f-longitude', record.longitude || 'N/A');
   safeSetText('print-f-address', record.gpsAddress || 'N/A');
+  safeSetText('print-f-gps-coords', record.latitude && record.longitude ? `${record.latitude}, ${record.longitude}` : 'N/A');
 
   const mapsLinkEl = document.getElementById('print-f-maps-link');
   if (mapsLinkEl) {
     if (record.latitude && record.longitude) {
-      mapsLinkEl.href = `https://www.google.com/maps/search/?api=1&query=${record.latitude},${record.longitude}`;
-      mapsLinkEl.textContent = `Open Google Maps (${record.latitude}, ${record.longitude})`;
+      const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${record.latitude},${record.longitude}`;
+      mapsLinkEl.href = mapsUrl;
+      mapsLinkEl.textContent = mapsUrl;
       mapsLinkEl.style.display = 'inline-block';
     } else {
       mapsLinkEl.style.display = 'none';
@@ -961,32 +980,31 @@ function populatePrintFullDetails(record, qrCodeDataUrl) {
 
   const createdDate = record.createdAt ? new Date(record.createdAt) : new Date();
   safeSetText('print-f-date', `Date: ${createdDate.toLocaleDateString()}`);
+  safeSetText('print-f-reg-date', createdDate.toLocaleDateString());
   safeSetText('print-f-reg-date-footer', createdDate.toLocaleDateString());
 
   const verificationCode = `${record.id}-${new Date(record.createdAt || Date.now()).getTime().toString(36).toUpperCase()}`;
   safeSetText('print-f-verification-code', verificationCode);
 
-  // Family Members Table
+  // Family Members Table (exactly 9 columns)
   const tbody = document.getElementById('print-f-members-tbody');
   if (tbody) {
     if (record.members && record.members.length) {
       tbody.innerHTML = record.members.map(m => `
         <tr>
           <td><strong>${m.fullName}</strong></td>
+          <td>${m.phone || 'N/A'}</td>
           <td>${m.age}</td>
           <td>${m.gender}</td>
           <td>${m.relationship}</td>
           <td>${m.education}</td>
           <td>${m.occupation}</td>
-          <td style="font-family: monospace;">${maskAadhaar(m.aadharNumber)}</td>
-          <td>${m.bankAccount || 'No'}</td>
-          <td>${m.income ? '₹' + parseFloat(m.income).toLocaleString('en-IN') : '₹0'}</td>
-          <td>${m.mnregaJobCard || 'No'}</td>
+          <td>${m.category || 'N/A'}</td>
           <td>${m.healthIssues || 'None'}</td>
         </tr>
       `).join('');
     } else {
-      tbody.innerHTML = `<tr><td colspan="11" style="text-align: center;">No members listed</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="9" style="text-align: center;">No members listed</td></tr>`;
     }
   }
 
@@ -995,9 +1013,19 @@ function populatePrintFullDetails(record, qrCodeDataUrl) {
   const photosSection = document.getElementById('print-f-photos-section');
   if (photosContainer) {
     if (record.photos && record.photos.length) {
-      photosContainer.innerHTML = record.photos.map(url => `
-        <img src="${url}" class="print-photo" alt="House Photo" crossorigin="anonymous">
-      `).join('');
+      photosContainer.innerHTML = record.photos.map((url, idx) => {
+        let caption = "Additional Photo";
+        if (idx === 0) caption = "House Front Photo";
+        else if (idx === 1) caption = "House Side Photo";
+        else if (idx === 2) caption = "Family Photo";
+        else caption = `Additional Photo ${idx - 2}`;
+        return `
+          <div class="print-photo-card" style="display: flex; flex-direction: column; align-items: center; border: 1px solid #d1d5db; border-radius: 6px; padding: 8px; background: #fff; width: 140px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+            <img src="${url}" style="width: 120px; height: 120px; object-fit: cover; border-radius: 4px;" alt="${caption}" crossorigin="anonymous">
+            <span class="photo-caption" style="font-size: 0.68rem; font-weight: 700; color: #1b4332; margin-top: 6px; text-align: center;">${caption}</span>
+          </div>
+        `;
+      }).join('');
       if (photosSection) photosSection.classList.remove('hidden');
     } else {
       photosContainer.innerHTML = '';
